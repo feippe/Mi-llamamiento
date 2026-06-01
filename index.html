@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#2f6b5f">
+    <title>Mi Llamamiento</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="assets/css/app.css">
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <aside class="sidebar" aria-label="Navegación principal">
+        <div class="brand">
+          <span class="brand-mark">ML</span>
+          <div>
+            <strong>Mi Llamamiento</strong>
+            <small id="syncLabel">Preparando</small>
+          </div>
+        </div>
+        <nav class="nav-list">
+          <button class="nav-button active" data-view="areas" title="Áreas">
+            <span class="icon">▦</span><span>Áreas</span>
+          </button>
+          <button class="nav-button" data-view="interviews" title="Entrevistas">
+            <span class="icon">◷</span><span>Entrevistas</span>
+          </button>
+          <button class="nav-button" data-view="alerts" title="Avisos">
+            <span class="icon">!</span><span>Avisos</span>
+          </button>
+        </nav>
+        <div class="sidebar-areas">
+          <div class="section-label">Áreas</div>
+          <div id="areaRail" class="area-rail"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <label class="field-label" for="areaSelect">Área activa</label>
+            <select id="areaSelect" class="select"></select>
+          </div>
+          <div class="topbar-actions">
+            <button id="installBtn" class="icon-button hidden" title="Instalar">
+              <span>⇩</span>
+            </button>
+            <button id="syncBtn" class="icon-button" title="Sincronizar">
+              <span>↻</span>
+            </button>
+          </div>
+        </header>
+
+        <section id="loginView" class="login-view hidden">
+          <form id="loginForm" class="login-panel">
+            <div class="login-copy">
+              <h1>Mi Llamamiento</h1>
+              <p>Gestión de tareas, entrevistas y seguimiento por área de servicio.</p>
+            </div>
+            <label>
+              Nombre
+              <input name="nombre" autocomplete="name" value="Usuario Demo">
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" autocomplete="email" value="demo@mi-llamamiento.local">
+            </label>
+            <button class="primary-button" type="submit">Entrar</button>
+          </form>
+        </section>
+
+        <section id="areasView" class="workspace view active">
+          <div class="list-pane">
+            <div class="pane-heading">
+              <div>
+                <h2>Tareas</h2>
+                <p id="taskCount">0 pendientes</p>
+              </div>
+              <button id="newTaskBtn" class="primary-button">Nueva</button>
+            </div>
+            <div class="filters" role="tablist" aria-label="Filtro de tareas">
+              <button class="filter active" data-task-filter="todas">Todas</button>
+              <button class="filter" data-task-filter="pendiente">Pendientes</button>
+              <button class="filter" data-task-filter="en_progreso">En curso</button>
+              <button class="filter" data-task-filter="completada">Hechas</button>
+            </div>
+            <div id="taskList" class="item-list"></div>
+          </div>
+          <div class="detail-pane">
+            <form id="taskForm" class="detail-form">
+              <input type="hidden" name="id">
+              <div class="pane-heading">
+                <div>
+                  <h2 id="taskFormTitle">Detalle</h2>
+                  <p id="taskMeta">Selecciona o crea una tarea</p>
+                </div>
+                <button id="deleteTaskBtn" class="icon-button danger" type="button" title="Eliminar">×</button>
+              </div>
+              <label>
+                Título
+                <input name="titulo" required maxlength="255">
+              </label>
+              <label>
+                Descripción
+                <textarea name="descripcion" rows="5"></textarea>
+              </label>
+              <div class="form-grid">
+                <label>
+                  Inicio
+                  <input name="fecha_inicio" type="date">
+                </label>
+                <label>
+                  Vence
+                  <input name="fecha_vencimiento" type="date">
+                </label>
+              </div>
+              <label>
+                Estado
+                <select name="estado">
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en_progreso">En progreso</option>
+                  <option value="completada">Completada</option>
+                </select>
+              </label>
+              <div class="subtasks">
+                <div class="pane-heading compact">
+                  <h3>Subtareas</h3>
+                  <button id="addSubtaskBtn" class="secondary-button" type="button">Agregar</button>
+                </div>
+                <div id="subtaskList"></div>
+              </div>
+              <button class="primary-button wide" type="submit">Guardar tarea</button>
+            </form>
+          </div>
+        </section>
+
+        <section id="interviewsView" class="workspace view">
+          <div class="list-pane">
+            <div class="pane-heading">
+              <div>
+                <h2>Ministración</h2>
+                <p id="complianceSummary">Sin parejas</p>
+              </div>
+              <button id="newPairBtn" class="primary-button">Pareja</button>
+            </div>
+            <div id="pairList" class="item-list"></div>
+          </div>
+          <div class="detail-pane">
+            <form id="pairForm" class="detail-form">
+              <input type="hidden" name="id">
+              <div class="pane-heading">
+                <div>
+                  <h2>Pareja</h2>
+                  <p>Entrevistas trimestrales</p>
+                </div>
+                <button id="deletePairBtn" class="icon-button danger" type="button" title="Eliminar">×</button>
+              </div>
+              <div class="form-grid">
+                <label>
+                  Integrante 1
+                  <input name="integrante_1" required>
+                </label>
+                <label>
+                  Integrante 2
+                  <input name="integrante_2" required>
+                </label>
+              </div>
+              <label>
+                Agendar entrevista
+                <input name="agendada_para" type="datetime-local">
+              </label>
+              <div class="button-row">
+                <button class="primary-button" type="submit">Guardar</button>
+                <button id="markInterviewBtn" class="secondary-button" type="button">Realizada hoy</button>
+              </div>
+            </form>
+
+            <form id="leadershipForm" class="detail-form">
+              <div class="pane-heading compact">
+                <h3>Entrevistas de liderazgo</h3>
+              </div>
+              <input name="persona" placeholder="Persona">
+              <input name="motivo" placeholder="Motivo">
+              <input name="fecha_objetivo" type="datetime-local">
+              <button class="secondary-button" type="submit">Crear entrevista</button>
+              <div id="leadershipList" class="small-list"></div>
+            </form>
+          </div>
+        </section>
+
+        <section id="alertsView" class="workspace view">
+          <div class="single-pane">
+            <div class="pane-heading">
+              <div>
+                <h2>Avisos</h2>
+                <p>Solicitudes, invitaciones y sincronización</p>
+              </div>
+            </div>
+            <div id="alertList" class="item-list"></div>
+          </div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Navegación inferior">
+        <button class="nav-button active" data-view="areas"><span class="icon">▦</span><span>Áreas</span></button>
+        <button class="nav-button" data-view="interviews"><span class="icon">◷</span><span>Entrevistas</span></button>
+        <button class="nav-button" data-view="alerts"><span class="icon">!</span><span>Avisos</span></button>
+      </nav>
+    </div>
+
+    <template id="subtaskTemplate">
+      <div class="subtask-row">
+        <input name="titulo" placeholder="Subtarea">
+        <select name="estado">
+          <option value="pendiente">Pendiente</option>
+          <option value="en_progreso">En progreso</option>
+          <option value="completada">Completada</option>
+        </select>
+        <button class="icon-button danger" type="button" title="Quitar">×</button>
+      </div>
+    </template>
+
+    <script type="module" src="assets/js/app.js"></script>
+  </body>
+</html>

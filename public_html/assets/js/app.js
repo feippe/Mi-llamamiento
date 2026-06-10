@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
   wireEvents();
+  loadAppVersion();
   if ('serviceWorker' in navigator) {
     const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -283,14 +284,6 @@ async function loadProfile() {
   $('#profileForm').elements.name.value = currentUser.name;
   $('#profileForm').elements.email.value = currentUser.email;
   renderAdminVisibility();
-  getSwVersion().then(version => {
-    if (!version) return;
-    const ts = parseInt(version.split('-').pop(), 10);
-    const label = ts
-      ? new Date(ts * 1000).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-      : version;
-    $('#appVersion').textContent = label;
-  });
 }
 
 async function saveProfile(event) {
@@ -1673,22 +1666,12 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);
 }
 
-function getSwVersion() {
-  if (!('serviceWorker' in navigator)) return Promise.resolve(null);
-  return new Promise(resolve => {
-    const timer = setTimeout(() => resolve(null), 2000);
-    const query = sw => {
-      if (!sw) { clearTimeout(timer); return resolve(null); }
-      const ch = new MessageChannel();
-      ch.port1.onmessage = e => { clearTimeout(timer); resolve(e.data?.version ?? null); };
-      sw.postMessage('getVersion', [ch.port2]);
-    };
-    const ctrl = navigator.serviceWorker.controller;
-    if (ctrl) return query(ctrl);
-    navigator.serviceWorker.ready
-      .then(reg => query(reg.active))
-      .catch(() => { clearTimeout(timer); resolve(null); });
-  });
+async function loadAppVersion() {
+  try {
+    const ts = parseInt(await (await fetch('/version.php')).text(), 10);
+    const label = new Date(ts * 1000).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    document.querySelectorAll('.app-version').forEach(el => el.textContent = label);
+  } catch (_) {}
 }
 
 function initIosInstallBanner() {

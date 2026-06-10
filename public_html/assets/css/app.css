@@ -264,6 +264,7 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--surface-soft);
+  align-self: start;
 }
 .task-tabs button {
   position: relative;

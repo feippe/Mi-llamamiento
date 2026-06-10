@@ -15,7 +15,19 @@
   <body>
     <div class="bg-blobs" aria-hidden="true"><span></span><span></span><span></span></div>
 
-    <section id="authView" class="auth-view">
+    <div id="splashScreen" aria-hidden="true">
+      <div class="splash-inner">
+        <img src="/assets/icons/logo.svg" class="splash-logo" alt="">
+        <p class="splash-name">Mi Llamamiento</p>
+        <div class="splash-dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+
+    <div id="contentLoader" class="hidden" aria-hidden="true">
+      <div class="content-spinner"></div>
+    </div>
+
+    <section id="authView" class="auth-view hidden">
       <form id="loginForm" class="auth-card">
         <img class="brand-mark" src="/assets/icons/logo.svg" alt="Mi Llamamiento">
         <h1>Mi Llamamiento</h1>

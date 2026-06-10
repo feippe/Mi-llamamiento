@@ -32,6 +32,16 @@ const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selec
 
 function haptic() { navigator.vibrate?.(10); }
 
+function hideSplash() {
+  const s = $('#splashScreen');
+  if (!s) return;
+  s.classList.add('splash-hiding');
+  setTimeout(() => s.remove(), 420);
+}
+
+function showLoader() { $('#contentLoader')?.classList.remove('hidden'); }
+function hideLoader() { $('#contentLoader')?.classList.add('hidden'); }
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
@@ -245,18 +255,22 @@ async function enterApp() {
   $('#appShell').classList.remove('hidden');
   $('#userLabel').textContent = currentUser.name || currentUser.email;
   initIosInstallBanner();
+  const minWait = new Promise(r => setTimeout(r, 700));
   await loadProfile();
   await loadCatalogs();
   await loadAreas();
   await loadUserCallings();
   renderAdminVisibility();
-  showView('dashboard');
+  await showView('dashboard');
+  await minWait;
+  hideSplash();
 }
 
 function showAuth() {
   $('#appShell').classList.add('hidden');
   $('#authView').classList.remove('hidden');
   toggleAuth('login');
+  hideSplash();
 }
 
 function toggleAuth(mode) {
@@ -273,7 +287,9 @@ async function showView(view) {
   const showAreaCard = view === 'tasks' || view === 'interviews';
   $('#sharedAreaCard').classList.toggle('hidden', !showAreaCard);
   if (view === 'dashboard') {
+    showLoader();
     await loadDashboard();
+    hideLoader();
     moveIndicator($('#dashboardView .task-tabs'), $('#dashboardView .tabs-indicator'), $('#dashboardView .task-tabs button.active'));
   }
   if (view === 'profile') {
@@ -287,7 +303,9 @@ async function showView(view) {
     moveIndicator($('#tasksView .task-tabs'), $('#tasksView .tabs-indicator'), $('#tasksView .task-tabs button.active'));
   }
   if (view === 'interviews') {
+    showLoader();
     await loadInterviews();
+    hideLoader();
     setInterviewTab('calling');
     moveIndicator($('#interviewFilterSegs'), $('#interviewFilterSegs .tabs-indicator'), $('[data-interview-filter].active'));
   }
@@ -431,9 +449,12 @@ async function loadAreas() {
       btn.addEventListener('click', async e => {
         e.stopPropagation();
         pickArea(btn.dataset.areaId, btn.dataset.areaName, btn.dataset.areaUnit);
+        showLoader();
         await loadMembers();
         await loadTasks();
         if (state.activeView === 'interviews') await loadInterviews();
+        if (state.activeView === 'dashboard') await loadDashboard();
+        hideLoader();
       });
     });
     const savedId = localStorage.getItem('activeAreaId');

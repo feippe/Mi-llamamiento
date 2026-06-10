@@ -1,11 +1,13 @@
-const CACHE = 'mi-llamamiento-mvp-v21';
+const CACHE = 'mi-llamamiento-mvp-v22';
 const SHELL = [
   '/',
   '/app.html',
   '/manifest.json',
   '/assets/css/app.css',
   '/assets/js/app.js',
-  '/assets/icons/logo.svg'
+  '/assets/icons/logo.svg',
+  '/assets/icons/icon-192.png',
+  '/assets/icons/icon-512.png'
 ];
 
 self.addEventListener('install', event => {

@@ -28,5 +28,6 @@ jobs:
             **/.git*/**
             .github/**
             app/config/local.php
+            app/config/config.php
             storage/**
             .ftp-deploy-sync-state.json

@@ -1,5 +1,4 @@
 app/config/local.php
 storage/*
 !storage/.gitkeep
-app/config/config.php
 .ftp-deploy-sync-state.json

@@ -204,6 +204,7 @@ async function logout() {
   });
   if (!confirmed) return;
   await api('/api/logout', { method: 'POST' });
+  localStorage.removeItem('activeAreaId');
   currentUser = null;
   canManageSettings = false;
   adminCatalog = null;
@@ -402,8 +403,10 @@ async function loadAreas() {
         if (state.activeView === 'interviews') await loadInterviews();
       });
     });
-    const first = activeAreas[0];
-    pickArea(first.id, first.name, first.unit_name || '');
+    const savedId = localStorage.getItem('activeAreaId');
+    const saved = savedId && activeAreas.find(a => a.id === savedId);
+    const initial = saved || activeAreas[0];
+    pickArea(initial.id, initial.name, initial.unit_name || '');
   } else {
     container.innerHTML = '<div style="padding:12px 14px;color:var(--muted);font-size:13px;">No tienes áreas activas.</div>';
     pickArea('', '', '');
@@ -415,6 +418,8 @@ async function loadAreas() {
 function pickArea(id, name, unit) {
   state.activeAreaId = id || null;
   state.activeArea = id ? (state.areas.find(a => a.id === id) || null) : null;
+  if (id) localStorage.setItem('activeAreaId', id);
+  else localStorage.removeItem('activeAreaId');
 
   $('#taskMineRow').classList.toggle('hidden', isPersonalArea());
 

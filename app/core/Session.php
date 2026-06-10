@@ -2,20 +2,36 @@
 
 class Session
 {
+    private const LIFETIME = 30 * 24 * 60 * 60; // 30 días
+
     public static function start(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
         $config = require base_path('app/config/config.php');
+        $secure = (bool) $config['app']['cookie_secure'];
+
+        ini_set('session.gc_maxlifetime', self::LIFETIME);
         session_set_cookie_params([
-            'lifetime' => 0,
+            'lifetime' => self::LIFETIME,
             'path' => '/',
-            'secure' => (bool) $config['app']['cookie_secure'],
+            'secure' => $secure,
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
         session_start();
+
+        // Renueva la expiración del cookie en cada request autenticado
+        if (!empty($_SESSION['user_id'])) {
+            setcookie(session_name(), session_id(), [
+                'expires'  => time() + self::LIFETIME,
+                'path'     => '/',
+                'secure'   => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
     }
 
     public static function userId(): ?string

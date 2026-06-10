@@ -37,7 +37,7 @@ async function init() {
       if (hadController) window.location.reload();
     });
     navigator.serviceWorker.register('/sw-gen.php').then(reg => {
-      setInterval(() => reg.update(), 60 * 60 * 1000);
+      setInterval(() => reg.update(), 12 * 60 * 60 * 1000);
     }).catch(e => console.warn('SW:', e));
   }
   await initSession();

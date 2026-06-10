@@ -228,7 +228,7 @@ input:focus, textarea:focus, select:focus {
 #tasksView { grid-template-columns: 1fr; align-items: start; }
 .panel { padding: 18px; display: grid; gap: 14px; min-width: 0; animation: riseIn .5s var(--ease) both; }
 .compact-panel { align-self: start; z-index:99; }
-.task-panel { min-height: 360px; }
+.task-panel { min-height: 360px; align-content: start; }
 .section-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
 
 .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; grid-column: 1 / -1; }

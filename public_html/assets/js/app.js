@@ -45,6 +45,7 @@ async function init() {
 }
 
 function wireEvents() {
+  $('#forceUpdateBtn').addEventListener('click', forceUpdate);
   $('#showRegister').addEventListener('click', () => toggleAuth('register'));
   $('#showLogin').addEventListener('click', () => toggleAuth('login'));
   $('#loginForm').addEventListener('submit', login);
@@ -1672,6 +1673,21 @@ async function loadAppVersion() {
     const label = new Date(ts * 1000).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     document.querySelectorAll('.app-version').forEach(el => el.textContent = label);
   } catch (_) {}
+}
+
+async function forceUpdate() {
+  const btn = $('#forceUpdateBtn');
+  btn.disabled = true;
+  btn.textContent = 'Actualizando…';
+  try {
+    await caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) await reg.update();
+    }
+  } finally {
+    window.location.reload();
+  }
 }
 
 function initIosInstallBanner() {

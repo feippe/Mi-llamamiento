@@ -548,13 +548,22 @@ function renderDashboard() {
 
   const pending  = tasks.filter(t => t.status === 'pending').length;
   const progress = tasks.filter(t => t.status === 'in_progress').length;
-  const overdue  = tasks.filter(t => t.due_date && t.due_date < today).length;
+  const todayCount = interviews.filter(i => {
+    const d = i.scheduled_date ? String(i.scheduled_date).split(' ')[0] : '';
+    return d && daysFromToday(d) === 0;
+  }).length;
+  const weekCount = interviews.filter(i => {
+    const d = i.scheduled_date ? String(i.scheduled_date).split(' ')[0] : '';
+    if (!d) return false;
+    const days = daysFromToday(d);
+    return days >= 0 && days <= 7;
+  }).length;
 
-  $('#dashStatPending').textContent   = pending;
-  $('#dashStatProgress').textContent  = progress;
-  $('#dashStatOverdue').textContent   = overdue;
-  $('#dashStatInterviews').textContent = interviews.length;
-  $('#dashStatOverdueTile').classList.toggle('no-overdue', overdue === 0);
+  $('#dashStatPending').textContent  = pending;
+  $('#dashStatProgress').textContent = progress;
+  $('#dashStatToday').textContent    = todayCount;
+  $('#dashStatWeek').textContent     = weekCount;
+  $('#dashStatTodayTile').classList.toggle('has-today', todayCount > 0);
 
   if (state.dashTab === 'tasks') renderDashTasks();
   else renderDashInterviews();
@@ -570,6 +579,11 @@ function setDashTab(tab) {
   else renderDashInterviews();
 }
 
+function isTaskOverdue(t) {
+  if (!t.due_date || t.status === 'done') return false;
+  return daysFromToday(String(t.due_date).split(' ')[0]) < 0;
+}
+
 function renderDashTasks() {
   const sorted = [...state.dashboard.tasks].sort(compareTasks);
 
@@ -578,7 +592,7 @@ function renderDashTasks() {
 
   $('#dashTaskList').innerHTML = sorted.length
     ? sorted.map(t => `
-      <button class="item" data-dash-task-id="${t.id}">
+      <button class="item${isTaskOverdue(t) ? ' task-overdue' : ''}" data-dash-task-id="${t.id}">
         <header>
           <strong>${escapeHtml(t.title)}</strong>
           <span class="badge ${statusColor(t.status)}">${statusLabel(t.status)}</span>
@@ -680,7 +694,7 @@ function renderTasks() {
     ? task.status === 'done'
     : ['pending', 'in_progress'].includes(task.status));
   $('#taskList').innerHTML = tasks.map(task => `
-    <button class="item" data-task-id="${task.id}">
+    <button class="item${isTaskOverdue(task) ? ' task-overdue' : ''}" data-task-id="${task.id}">
       <header><strong>${escapeHtml(task.title)}</strong><span class="badge ${task.status === 'done' ? 'green' : task.status === 'in_progress' ? 'yellow' : ''}">${statusLabel(task.status)}</span></header>
       <p>Inicio: ${formatDate(task.start_date)} · Vence: ${formatDate(task.due_date)}</p>
       <div class="item-person">${avatarHtml(task.assigned_to_name)}<span>${escapeHtml(task.assigned_to_name || 'Sin responsable')}</span></div>

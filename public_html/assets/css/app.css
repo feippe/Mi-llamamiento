@@ -310,6 +310,22 @@ input:focus, textarea:focus, select:focus {
   box-shadow: var(--shadow-md);
   border-color: rgba(30, 58, 138, .2);
 }
+.item.interview-today {
+  background:
+    linear-gradient(white, white) padding-box,
+    linear-gradient(120deg, var(--primary), var(--indigo, #6366f1), var(--primary)) border-box;
+  border: 1.5px solid transparent;
+  animation: riseIn .45s var(--ease) both, todayPulse 2.2s ease-in-out infinite;
+}
+.item.interview-today strong { color: var(--primary-dark, var(--primary)); }
+@keyframes todayPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, .28); }
+  50% { box-shadow: 0 0 16px 2px rgba(79, 70, 229, .30); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .item.interview-today { animation: riseIn .45s var(--ease) both; }
+}
+
 .item header, .admin-row header { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
 .item strong, .admin-row strong { overflow-wrap: anywhere; }
 .list > *:nth-child(1), .admin-list > *:nth-child(1) { animation-delay: .02s; }

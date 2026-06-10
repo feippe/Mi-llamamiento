@@ -571,17 +571,7 @@ function setDashTab(tab) {
 }
 
 function renderDashTasks() {
-  const today = todayStr();
-  const sorted = [...state.dashboard.tasks].sort((a, b) => {
-    const aOver = a.due_date && a.due_date < today;
-    const bOver = b.due_date && b.due_date < today;
-    if (aOver !== bOver) return aOver ? -1 : 1;
-    if (a.due_date && b.due_date) { const c = a.due_date.localeCompare(b.due_date); if (c) return c; }
-    if (a.due_date && !b.due_date) return -1;
-    if (!a.due_date && b.due_date) return 1;
-    const so = { in_progress: 1, pending: 2 };
-    return (so[a.status] || 3) - (so[b.status] || 3);
-  });
+  const sorted = [...state.dashboard.tasks].sort(compareTasks);
 
   const statusLabel = s => ({ pending: 'Pendiente', in_progress: 'En curso' })[s] || s;
   const statusColor = s => s === 'in_progress' ? 'yellow' : '';
@@ -607,20 +597,22 @@ function renderDashTasks() {
 }
 
 function renderDashInterviews() {
-  const sorted = [...state.dashboard.interviews].sort((a, b) =>
-    String(a.scheduled_date || '').localeCompare(String(b.scheduled_date || ''))
-  );
+  const today = todayStr();
+  const sorted = [...state.dashboard.interviews].sort(compareInterviews);
 
   $('#dashInterviewList').innerHTML = sorted.length
-    ? sorted.map(i => `
-      <button class="item" data-dash-interview-id="${i.id}">
+    ? sorted.map(i => {
+      const isToday = i.scheduled_date && String(i.scheduled_date).split(' ')[0] === today;
+      return `
+      <button class="item${isToday ? ' interview-today' : ''}" data-dash-interview-id="${i.id}">
         <header>
           <strong>${escapeHtml(i.interviewee)}</strong>
           ${interviewUrgencyBadge(i.scheduled_date)}
         </header>
         <p>${formatInterviewDate(i.scheduled_date, i.scheduled_time)}</p>
         <span class="dash-item-area">${escapeHtml(i.area_name)}${i.unit_name ? ' · ' + escapeHtml(i.unit_name) : ''}</span>
-      </button>`).join('')
+      </button>`;
+    }).join('')
     : '<div class="item"><p>No tienes entrevistas próximas asignadas.</p></div>';
 
   $$('#dashInterviewList [data-dash-interview-id]').forEach(btn => {
@@ -1428,11 +1420,20 @@ function formatDate(value) {
 }
 
 function compareTasks(a, b) {
-  return compareDateDesc(a.due_date, b.due_date)
-    || compareDateAsc(a.start_date, b.start_date)
-    || compareUnassignedFirst(a.assigned_to, b.assigned_to)
+  return compareDateAsc(a.due_date, b.due_date)
+    || compareDateDesc(a.start_date, b.start_date)
     || compareStatus(a.status, b.status)
     || String(b.created_at || '').localeCompare(String(a.created_at || ''));
+}
+
+function compareInterviews(a, b) {
+  const ad = a.scheduled_date, bd = b.scheduled_date;
+  if (!ad && !bd) return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+  if (!ad) return -1;
+  if (!bd) return 1;
+  const c = String(ad).localeCompare(String(bd));
+  if (c) return c;
+  return String(a.scheduled_time || '').localeCompare(String(b.scheduled_time || ''));
 }
 
 function compareDateDesc(a, b) {
@@ -1449,14 +1450,8 @@ function compareDateAsc(a, b) {
   return String(a).localeCompare(String(b));
 }
 
-function compareUnassignedFirst(a, b) {
-  if (!a && b) return -1;
-  if (a && !b) return 1;
-  return 0;
-}
-
 function compareStatus(a, b) {
-  const order = { in_progress: 1, pending: 2, done: 3 };
+  const order = { pending: 1, in_progress: 2, done: 3 };
   return (order[a] || 99) - (order[b] || 99);
 }
 
@@ -1482,11 +1477,13 @@ function renderInterviews() {
   if (state.myInterviewsOnly && currentUser) {
     list = list.filter(i => i.interviewer_id === currentUser.id);
   }
+  list.sort(compareInterviews);
   const container = $('#interviewList');
   if (!list.length) {
     container.innerHTML = `<div class="item"><p>No hay entrevistas ${state.interviewFilter === 'done' ? 'realizadas' : 'próximas'}.</p></div>`;
     return;
   }
+  const today = todayStr();
   container.innerHTML = list.map(interview => {
     const completed = Number(interview.completed);
     const badge = completed
@@ -1495,8 +1492,9 @@ function renderInterviews() {
     const interviewerHtml = interview.interviewer_name
       ? `${avatarHtml(interview.interviewer_name)}<span>${escapeHtml(interview.interviewer_name)}</span>`
       : `<span style="color:var(--muted);font-size:13px">Sin entrevistador</span>`;
+    const isToday = !completed && interview.scheduled_date && String(interview.scheduled_date).split(' ')[0] === today;
     return `
-      <button class="item" data-interview-id="${interview.id}">
+      <button class="item${isToday ? ' interview-today' : ''}" data-interview-id="${interview.id}">
         <header><strong>${escapeHtml(interview.interviewee)}</strong>${badge}</header>
         <p>${formatInterviewDate(interview.scheduled_date, interview.scheduled_time)}</p>
         <div class="item-person">${interviewerHtml}</div>

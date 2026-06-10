@@ -500,7 +500,8 @@ function todayStr() {
 function daysFromToday(dateStr) {
   if (!dateStr) return null;
   const [y, m, d] = dateStr.split('-').map(Number);
-  const ms = Date.UTC(y, m - 1, d) - Date.UTC(...todayStr().split('-').map(Number));
+  const [ty, tm, td] = todayStr().split('-').map(Number);
+  const ms = Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td);
   return Math.round(ms / 86400000);
 }
 

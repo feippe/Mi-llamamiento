@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS interviews (
   id CHAR(36) NOT NULL PRIMARY KEY,
   work_area_id CHAR(36) NOT NULL,
   interviewee VARCHAR(220) NOT NULL,
-  scheduled_date DATE NOT NULL,
+  scheduled_date DATE NULL,
   scheduled_time TIME NULL,
   interviewer_id CHAR(36) NULL,
   notes TEXT NULL,

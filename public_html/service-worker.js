@@ -20,6 +20,12 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+self.addEventListener('message', event => {
+  if (event.data === 'getVersion') {
+    event.source.postMessage({ type: 'version', version: CACHE });
+  }
+});
+
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.pathname.startsWith('/api/')) {

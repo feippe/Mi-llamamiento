@@ -896,3 +896,46 @@ dialog[open] { animation: dialogIn .4s var(--ease-spring) both; }
   .stat-tile { padding: 12px; }
   .stat-tile .stat-value { font-size: 21px; }
 }
+
+.app-version {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: .5;
+  margin: 0;
+  padding-bottom: 8px;
+}
+
+.ios-install-banner {
+  position: fixed;
+  bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  left: 14px;
+  right: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 14px 44px 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 50;
+  animation: riseIn .4s var(--ease) both;
+}
+.ios-install-banner.hidden { display: none; }
+.ios-install-banner p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text); }
+.ios-share-icon { width: 30px; height: 30px; flex-shrink: 0; color: var(--primary-light); }
+.ios-install-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  padding: 0;
+}

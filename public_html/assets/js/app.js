@@ -47,6 +47,10 @@ function wireEvents() {
   $('#loginForm').addEventListener('submit', login);
   $('#registerForm').addEventListener('submit', register);
   $('#logoutBtn').addEventListener('click', logout);
+  $('#iosInstallBannerClose').addEventListener('click', () => {
+    localStorage.setItem('iosInstallDismissed', '1');
+    $('#iosInstallBanner').classList.add('hidden');
+  });
   $$('[data-nav]').forEach(button => button.addEventListener('click', () => showView(button.dataset.nav)));
 
   $('#profileForm').addEventListener('submit', saveProfile);
@@ -204,6 +208,7 @@ async function enterApp() {
   $('#authView').classList.add('hidden');
   $('#appShell').classList.remove('hidden');
   $('#userLabel').textContent = currentUser.name || currentUser.email;
+  initIosInstallBanner();
   await loadProfile();
   await loadCatalogs();
   await loadAreas();
@@ -276,6 +281,14 @@ async function loadProfile() {
   $('#profileForm').elements.name.value = currentUser.name;
   $('#profileForm').elements.email.value = currentUser.email;
   renderAdminVisibility();
+  getSwVersion().then(version => {
+    if (!version) return;
+    const ts = parseInt(version.split('-').pop(), 10);
+    const label = ts
+      ? new Date(ts * 1000).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : version;
+    $('#appVersion').textContent = label;
+  });
 }
 
 async function saveProfile(event) {
@@ -1656,6 +1669,26 @@ function closeMinInterviewerOptions() { $('#minInterviewerOptions').classList.ad
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);
+}
+
+function getSwVersion() {
+  return new Promise(resolve => {
+    const sw = navigator.serviceWorker?.controller;
+    if (!sw) return resolve(null);
+    const channel = new MessageChannel();
+    channel.port1.onmessage = e => resolve(e.data?.version ?? null);
+    sw.postMessage('getVersion', [channel.port2]);
+    setTimeout(() => resolve(null), 800);
+  });
+}
+
+function initIosInstallBanner() {
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
+  const isSafari = /safari/i.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent);
+  if (isIos && !isStandalone && isSafari && !localStorage.getItem('iosInstallDismissed')) {
+    $('#iosInstallBanner').classList.remove('hidden');
+  }
 }
 
 const AVATAR_PALETTE = ['#1E3A8A', '#d97706', '#10b981', '#F59E0B', '#ef4444', '#3b63c8', '#0f1f4d'];

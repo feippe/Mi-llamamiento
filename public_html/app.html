@@ -535,12 +535,18 @@
           <div class="task-dates-row">
             <div class="task-date-field">
               <span class="task-date-label">Fecha</span>
-              <span class="task-date-display no-date" id="interviewDateDisplay">Sin fecha</span>
+              <div class="date-display-row">
+                <span class="task-date-display no-date" id="interviewDateDisplay">Sin fecha</span>
+                <button type="button" class="date-clear-btn hidden" id="interviewDateClear" aria-label="Borrar fecha">×</button>
+              </div>
               <input class="task-date-input hidden" name="scheduled_date" id="interviewDate" type="date">
             </div>
             <div class="task-date-field">
               <span class="task-date-label">Hora (opcional)</span>
-              <span class="task-date-display no-date" id="interviewTimeDisplay">Sin hora</span>
+              <div class="date-display-row">
+                <span class="task-date-display no-date" id="interviewTimeDisplay">Sin hora</span>
+                <button type="button" class="date-clear-btn hidden" id="interviewTimeClear" aria-label="Borrar hora">×</button>
+              </div>
               <input class="task-date-input hidden" name="scheduled_time" id="interviewTime" type="time">
             </div>
           </div>
@@ -606,12 +612,18 @@
           <div class="task-dates-row">
             <div class="task-date-field">
               <span class="task-date-label">Fecha</span>
-              <span class="task-date-display no-date" id="minInterviewDateDisplay">Sin fecha</span>
+              <div class="date-display-row">
+                <span class="task-date-display no-date" id="minInterviewDateDisplay">Sin fecha</span>
+                <button type="button" class="date-clear-btn hidden" id="minInterviewDateClear" aria-label="Borrar fecha">×</button>
+              </div>
               <input class="task-date-input hidden" name="scheduled_date" id="minInterviewDate" type="date">
             </div>
             <div class="task-date-field">
               <span class="task-date-label">Hora (opcional)</span>
-              <span class="task-date-display no-date" id="minInterviewTimeDisplay">Sin hora</span>
+              <div class="date-display-row">
+                <span class="task-date-display no-date" id="minInterviewTimeDisplay">Sin hora</span>
+                <button type="button" class="date-clear-btn hidden" id="minInterviewTimeClear" aria-label="Borrar hora">×</button>
+              </div>
               <input class="task-date-input hidden" name="scheduled_time" id="minInterviewTime" type="time">
             </div>
           </div>

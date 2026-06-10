@@ -139,6 +139,8 @@ function wireEvents() {
   $('#intervieweeName').addEventListener('input', () => scheduleInterviewAutosave());
   $('#interviewDateDisplay').addEventListener('click', () => startInterviewDateEdit('date'));
   $('#interviewTimeDisplay').addEventListener('click', () => startInterviewDateEdit('time'));
+  $('#interviewDateClear').addEventListener('click', () => { setInterviewDateDisplay('date', ''); scheduleInterviewAutosave(); });
+  $('#interviewTimeClear').addEventListener('click', () => { setInterviewDateDisplay('time', ''); scheduleInterviewAutosave(); });
   $('#interviewDate').addEventListener('change', () => commitInterviewDateEdit('date'));
   $('#interviewDate').addEventListener('blur', () => commitInterviewDateEdit('date'));
   $('#interviewTime').addEventListener('change', () => commitInterviewDateEdit('time'));
@@ -164,6 +166,8 @@ function wireEvents() {
   $('#minInterviewerTag').addEventListener('click', e => { e.stopPropagation(); toggleMinInterviewerOptions(); });
   $('#minInterviewDateDisplay').addEventListener('click', () => startMinInterviewDateEdit('date'));
   $('#minInterviewTimeDisplay').addEventListener('click', () => startMinInterviewDateEdit('time'));
+  $('#minInterviewDateClear').addEventListener('click', () => { setMinInterviewDateDisplay('date', ''); scheduleMinisteringAutosave(); });
+  $('#minInterviewTimeClear').addEventListener('click', () => { setMinInterviewDateDisplay('time', ''); scheduleMinisteringAutosave(); });
   $('#minInterviewDate').addEventListener('change', () => commitMinInterviewDateEdit('date'));
   $('#minInterviewDate').addEventListener('blur', () => commitMinInterviewDateEdit('date'));
   $('#minInterviewTime').addEventListener('change', () => commitMinInterviewDateEdit('time'));
@@ -942,11 +946,14 @@ function setInterviewDateDisplay(field, rawValue) {
   const isDate = field === 'date';
   const display = isDate ? $('#interviewDateDisplay') : $('#interviewTimeDisplay');
   const input   = isDate ? $('#interviewDate') : $('#interviewTime');
+  const clearBtn = isDate ? $('#interviewDateClear') : $('#interviewTimeClear');
   const val = rawValue ? String(rawValue).split(' ')[0] : '';
+  input.value = val;
   display.textContent = val ? (isDate ? formatDate(val) : val.slice(0, 5)) : (isDate ? 'Sin fecha' : 'Sin hora');
   display.classList.toggle('no-date', !val);
   display.classList.remove('hidden');
   input.classList.add('hidden');
+  clearBtn.classList.toggle('hidden', !val);
 }
 
 function startInterviewDateEdit(field) {
@@ -968,11 +975,14 @@ function setMinInterviewDateDisplay(field, rawValue) {
   const isDate = field === 'date';
   const display = isDate ? $('#minInterviewDateDisplay') : $('#minInterviewTimeDisplay');
   const input   = isDate ? $('#minInterviewDate') : $('#minInterviewTime');
+  const clearBtn = isDate ? $('#minInterviewDateClear') : $('#minInterviewTimeClear');
   const val = rawValue ? String(rawValue).split(' ')[0] : '';
+  input.value = val;
   display.textContent = val ? (isDate ? formatDate(val) : val.slice(0, 5)) : (isDate ? 'Sin fecha' : 'Sin hora');
   display.classList.toggle('no-date', !val);
   display.classList.remove('hidden');
   input.classList.add('hidden');
+  clearBtn.classList.toggle('hidden', !val);
 }
 
 function startMinInterviewDateEdit(field) {
@@ -1569,7 +1579,7 @@ function openInterviewDialog(interview = null) {
 
   form.elements.id.value = interview?.id || '';
   $('#intervieweeName').value = interview?.interviewee || '';
-  const iDateVal = interview?.scheduled_date ? String(interview.scheduled_date).split(' ')[0] : todayIso();
+  const iDateVal = interview?.scheduled_date ? String(interview.scheduled_date).split(' ')[0] : '';
   const iTimeVal = interview?.scheduled_time ? interview.scheduled_time.slice(0, 5) : '';
   $('#interviewDate').value = iDateVal;
   $('#interviewTime').value = iTimeVal;

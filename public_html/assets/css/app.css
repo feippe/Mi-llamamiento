@@ -674,6 +674,12 @@ dialog[open] { animation: dialogIn .4s var(--ease-spring) both; }
   flex-wrap: wrap;
 }
 
+.task-mine-row {
+  display: flex;
+  justify-content: flex-end;
+}
+.task-mine-row.hidden { display: none; }
+
 .filter-segs {
   position: relative;
   display: grid;

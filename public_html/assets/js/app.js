@@ -20,6 +20,7 @@ let state = {
   activeAreaId: null,
   activeView: 'tasks',
   taskFilter: 'open',
+  myTasksOnly: true,
   interviewFilter: 'upcoming',
   myInterviewsOnly: false,
 };
@@ -70,6 +71,7 @@ function wireEvents() {
   $('#saveNewTaskBtn').addEventListener('click', closeTaskDialog);
   $('#newTaskBtn').addEventListener('click', () => openTaskDialog());
   $$('[data-task-filter]').forEach(button => button.addEventListener('click', () => setTaskFilter(button.dataset.taskFilter)));
+  $('#myTasksOnly').addEventListener('change', () => { state.myTasksOnly = $('#myTasksOnly').checked; renderTasks(); renderTaskStats(); });
   $('#taskForm').addEventListener('submit', e => e.preventDefault());
   $('#closeTaskBtn').addEventListener('click', closeTaskDialog);
   $('#taskDialog').addEventListener('cancel', e => { e.preventDefault(); closeTaskDialog(); });
@@ -414,6 +416,8 @@ function pickArea(id, name, unit) {
   state.activeAreaId = id || null;
   state.activeArea = id ? (state.areas.find(a => a.id === id) || null) : null;
 
+  $('#taskMineRow').classList.toggle('hidden', isPersonalArea());
+
   const hasInterviews = state.activeArea && Number(state.activeArea.has_interviews) === 1;
   const interviewsBtn = $('[data-nav="interviews"]');
   interviewsBtn.classList.toggle('hidden', !hasInterviews);
@@ -459,8 +463,19 @@ async function loadTasks() {
   renderTaskStats();
 }
 
+function isPersonalArea() {
+  return !!(state.activeArea && Number(state.activeArea.is_personal) === 1);
+}
+
+function scopedTasks() {
+  if (!isPersonalArea() && state.myTasksOnly && currentUser) {
+    return state.tasks.filter(task => task.assigned_to === currentUser.id);
+  }
+  return state.tasks;
+}
+
 function renderTaskStats() {
-  const counts = state.tasks.reduce((acc, task) => {
+  const counts = scopedTasks().reduce((acc, task) => {
     acc[task.status] = (acc[task.status] || 0) + 1;
     return acc;
   }, {});
@@ -477,7 +492,7 @@ function setTaskFilter(filter) {
 }
 
 function renderTasks() {
-  const tasks = state.tasks.filter(task => state.taskFilter === 'done'
+  const tasks = scopedTasks().filter(task => state.taskFilter === 'done'
     ? task.status === 'done'
     : ['pending', 'in_progress'].includes(task.status));
   $('#taskList').innerHTML = tasks.map(task => `

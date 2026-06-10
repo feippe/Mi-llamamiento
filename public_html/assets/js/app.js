@@ -135,8 +135,12 @@ function wireEvents() {
     scheduleInterviewAutosave();
   });
   $('#intervieweeName').addEventListener('input', () => scheduleInterviewAutosave());
-  $('#interviewDate').addEventListener('change', () => scheduleInterviewAutosave(true));
-  $('#interviewTime').addEventListener('change', () => scheduleInterviewAutosave(true));
+  $('#interviewDateDisplay').addEventListener('click', () => startInterviewDateEdit('date'));
+  $('#interviewTimeDisplay').addEventListener('click', () => startInterviewDateEdit('time'));
+  $('#interviewDate').addEventListener('change', () => commitInterviewDateEdit('date'));
+  $('#interviewDate').addEventListener('blur', () => commitInterviewDateEdit('date'));
+  $('#interviewTime').addEventListener('change', () => commitInterviewDateEdit('time'));
+  $('#interviewTime').addEventListener('blur', () => commitInterviewDateEdit('time'));
   $('#interviewCompletedCheck').addEventListener('change', () => scheduleInterviewAutosave(true));
   document.addEventListener('click', e => {
     if (!$('#interviewerPicker').contains(e.target)) closeInterviewerOptions();
@@ -156,8 +160,12 @@ function wireEvents() {
   $('#closeMinisteringInterviewBtn').addEventListener('click', closeMinisteringInterview);
   $('#ministeringInterviewDialog').addEventListener('cancel', e => { e.preventDefault(); closeMinisteringInterview(); });
   $('#minInterviewerTag').addEventListener('click', e => { e.stopPropagation(); toggleMinInterviewerOptions(); });
-  $('#minInterviewDate').addEventListener('change', () => scheduleMinisteringAutosave(true));
-  $('#minInterviewTime').addEventListener('change', () => scheduleMinisteringAutosave(true));
+  $('#minInterviewDateDisplay').addEventListener('click', () => startMinInterviewDateEdit('date'));
+  $('#minInterviewTimeDisplay').addEventListener('click', () => startMinInterviewDateEdit('time'));
+  $('#minInterviewDate').addEventListener('change', () => commitMinInterviewDateEdit('date'));
+  $('#minInterviewDate').addEventListener('blur', () => commitMinInterviewDateEdit('date'));
+  $('#minInterviewTime').addEventListener('change', () => commitMinInterviewDateEdit('time'));
+  $('#minInterviewTime').addEventListener('blur', () => commitMinInterviewDateEdit('time'));
   $('#minInterviewNotes').addEventListener('input', () => { autoResizeTextarea($('#minInterviewNotes')); scheduleMinisteringAutosave(); });
   $('#minInterviewCompletedCheck').addEventListener('change', () => scheduleMinisteringAutosave(true));
 }
@@ -919,6 +927,58 @@ function commitDateEdit(field) {
   scheduleAutosave();
 }
 
+function setInterviewDateDisplay(field, rawValue) {
+  const isDate = field === 'date';
+  const display = isDate ? $('#interviewDateDisplay') : $('#interviewTimeDisplay');
+  const input   = isDate ? $('#interviewDate') : $('#interviewTime');
+  const val = rawValue ? String(rawValue).split(' ')[0] : '';
+  display.textContent = val ? (isDate ? formatDate(val) : val.slice(0, 5)) : (isDate ? 'Sin fecha' : 'Sin hora');
+  display.classList.toggle('no-date', !val);
+  display.classList.remove('hidden');
+  input.classList.add('hidden');
+}
+
+function startInterviewDateEdit(field) {
+  const isDate = field === 'date';
+  const display = isDate ? $('#interviewDateDisplay') : $('#interviewTimeDisplay');
+  const input   = isDate ? $('#interviewDate') : $('#interviewTime');
+  display.classList.add('hidden');
+  input.classList.remove('hidden');
+  input.focus();
+}
+
+function commitInterviewDateEdit(field) {
+  const input = field === 'date' ? $('#interviewDate') : $('#interviewTime');
+  setInterviewDateDisplay(field, input.value);
+  scheduleInterviewAutosave();
+}
+
+function setMinInterviewDateDisplay(field, rawValue) {
+  const isDate = field === 'date';
+  const display = isDate ? $('#minInterviewDateDisplay') : $('#minInterviewTimeDisplay');
+  const input   = isDate ? $('#minInterviewDate') : $('#minInterviewTime');
+  const val = rawValue ? String(rawValue).split(' ')[0] : '';
+  display.textContent = val ? (isDate ? formatDate(val) : val.slice(0, 5)) : (isDate ? 'Sin fecha' : 'Sin hora');
+  display.classList.toggle('no-date', !val);
+  display.classList.remove('hidden');
+  input.classList.add('hidden');
+}
+
+function startMinInterviewDateEdit(field) {
+  const isDate = field === 'date';
+  const display = isDate ? $('#minInterviewDateDisplay') : $('#minInterviewTimeDisplay');
+  const input   = isDate ? $('#minInterviewDate') : $('#minInterviewTime');
+  display.classList.add('hidden');
+  input.classList.remove('hidden');
+  input.focus();
+}
+
+function commitMinInterviewDateEdit(field) {
+  const input = field === 'date' ? $('#minInterviewDate') : $('#minInterviewTime');
+  setMinInterviewDateDisplay(field, input.value);
+  scheduleMinisteringAutosave();
+}
+
 async function saveTask(event) {
   event.preventDefault();
   if (!$('#taskTitleInput').classList.contains('hidden')) commitTitleEdit();
@@ -1499,8 +1559,12 @@ function openInterviewDialog(interview = null) {
 
   form.elements.id.value = interview?.id || '';
   $('#intervieweeName').value = interview?.interviewee || '';
-  $('#interviewDate').value = interview?.scheduled_date ? String(interview.scheduled_date).split(' ')[0] : todayIso();
-  $('#interviewTime').value = interview?.scheduled_time ? interview.scheduled_time.slice(0, 5) : '';
+  const iDateVal = interview?.scheduled_date ? String(interview.scheduled_date).split(' ')[0] : todayIso();
+  const iTimeVal = interview?.scheduled_time ? interview.scheduled_time.slice(0, 5) : '';
+  $('#interviewDate').value = iDateVal;
+  $('#interviewTime').value = iTimeVal;
+  setInterviewDateDisplay('date', iDateVal);
+  setInterviewDateDisplay('time', iTimeVal);
   $('#interviewNotes').value = interview?.notes || '';
   setTimeout(() => autoResizeTextarea($('#interviewNotes')), 0);
   $('#interviewCompletedCheck').checked = !!Number(interview?.completed);
@@ -1748,8 +1812,12 @@ function openMinisteringInterview(pairId) {
   const f = $('#ministeringInterviewForm');
   f.elements.pair_id.value = pair.id;
   f.elements.quarter.value = state.pairQuarter;
-  f.elements.scheduled_date.value = pair.scheduled_date ?? '';
-  f.elements.scheduled_time.value = pair.scheduled_time ? pair.scheduled_time.slice(0, 5) : '';
+  const minDateVal = pair.scheduled_date ?? '';
+  const minTimeVal = pair.scheduled_time ? pair.scheduled_time.slice(0, 5) : '';
+  f.elements.scheduled_date.value = minDateVal;
+  f.elements.scheduled_time.value = minTimeVal;
+  setMinInterviewDateDisplay('date', minDateVal);
+  setMinInterviewDateDisplay('time', minTimeVal);
   f.elements.notes.value = pair.notes ?? '';
   f.elements.completed.checked = Number(pair.completed) === 1;
   const m2 = pair.minister2 ? ` · ${escapeHtml(pair.minister2)}` : '';

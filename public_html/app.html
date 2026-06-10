@@ -433,7 +433,7 @@
         </button>
         <button type="button" data-nav="interviews">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
-          <span>Entrevistas</span>
+          <span>Ent.</span>
         </button>
         <button type="button" data-nav="profile">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/></svg>
@@ -532,9 +532,17 @@
             <input name="interviewee" id="intervieweeName" maxlength="220" placeholder="Nombre completo" autocomplete="off">
           </label>
 
-          <div class="interview-datetime-row">
-            <label>Fecha<input name="scheduled_date" id="interviewDate" type="date"></label>
-            <label>Hora (opcional)<input name="scheduled_time" id="interviewTime" type="time"></label>
+          <div class="task-dates-row">
+            <div class="task-date-field">
+              <span class="task-date-label">Fecha</span>
+              <span class="task-date-display no-date" id="interviewDateDisplay">Sin fecha</span>
+              <input class="task-date-input hidden" name="scheduled_date" id="interviewDate" type="date">
+            </div>
+            <div class="task-date-field">
+              <span class="task-date-label">Hora (opcional)</span>
+              <span class="task-date-display no-date" id="interviewTimeDisplay">Sin hora</span>
+              <input class="task-date-input hidden" name="scheduled_time" id="interviewTime" type="time">
+            </div>
           </div>
 
           <div>
@@ -595,9 +603,17 @@
           <input type="hidden" name="interviewer_id" id="minInterviewerIdInput" value="">
           <div class="task-dialog-header"><h2>Entrevista de ministración</h2></div>
           <div id="minPairInfo" class="pair-info-chip"></div>
-          <div class="interview-datetime-row">
-            <label>Fecha<input name="scheduled_date" id="minInterviewDate" type="date"></label>
-            <label>Hora (opcional)<input name="scheduled_time" id="minInterviewTime" type="time"></label>
+          <div class="task-dates-row">
+            <div class="task-date-field">
+              <span class="task-date-label">Fecha</span>
+              <span class="task-date-display no-date" id="minInterviewDateDisplay">Sin fecha</span>
+              <input class="task-date-input hidden" name="scheduled_date" id="minInterviewDate" type="date">
+            </div>
+            <div class="task-date-field">
+              <span class="task-date-label">Hora (opcional)</span>
+              <span class="task-date-display no-date" id="minInterviewTimeDisplay">Sin hora</span>
+              <input class="task-date-input hidden" name="scheduled_time" id="minInterviewTime" type="time">
+            </div>
           </div>
           <div>
             <span class="task-date-label">Entrevistador</span>

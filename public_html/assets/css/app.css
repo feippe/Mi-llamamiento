@@ -752,13 +752,6 @@ dialog[open] { animation: dialogIn .4s var(--ease-spring) both; }
   transform: translateX(17px);
 }
 
-.interview-datetime-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  min-width: 0;
-}
-.interview-datetime-row label { min-width: 0; }
 input[type="date"], input[type="time"] { min-width: 0; }
 
 .notes-disclaimer {

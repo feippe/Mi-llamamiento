@@ -1502,7 +1502,7 @@ function renderInterviews() {
     const completed = Number(interview.completed);
     const badge = completed
       ? '<span class="badge green">Realizada</span>'
-      : (interview.interviewer_id ? '<span class="badge">Agendada</span>' : '<span class="badge yellow">Sin asignar</span>');
+      : (interview.scheduled_date ? '<span class="badge">Agendada</span>' : '<span class="badge yellow">Sin fecha</span>');
     const interviewerHtml = interview.interviewer_name
       ? `${avatarHtml(interview.interviewer_name)}<span>${escapeHtml(interview.interviewer_name)}</span>`
       : `<span style="color:var(--muted);font-size:13px">Sin entrevistador</span>`;

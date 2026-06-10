@@ -14,8 +14,6 @@ class Router
     {
         $method = Request::method();
         $path = Request::path();
-        $path = preg_replace('#^/api/index\.php#', '/api', $path);
-
         foreach ($this->routes as [$routeMethod, $regex, $handler]) {
             if ($routeMethod !== $method || !preg_match($regex, $path, $matches)) {
                 continue;
@@ -26,7 +24,6 @@ class Router
             $controller->$action(...$matches);
             return;
         }
-
         Response::error('NOT_FOUND', 'Ruta no encontrada.', 404);
     }
 }

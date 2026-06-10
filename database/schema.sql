@@ -1,108 +1,84 @@
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
 
-CREATE TABLE IF NOT EXISTS stakes (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  tipo ENUM('estaca','distrito') NOT NULL DEFAULT 'estaca',
-  nombre VARCHAR(255) NOT NULL,
-  created_by CHAR(36) NULL,
-  created_at DATETIME NOT NULL
+CREATE TABLE IF NOT EXISTS users (
+  id CHAR(36) PRIMARY KEY,
+  name VARCHAR(160) NOT NULL,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  deleted_at DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS units (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  stake_id INT NOT NULL,
-  tipo ENUM('barrio','rama') NOT NULL DEFAULT 'barrio',
-  nombre VARCHAR(255) NOT NULL,
-  created_by CHAR(36) NULL,
-  created_at DATETIME NOT NULL,
-  INDEX idx_units_stake (stake_id),
-  CONSTRAINT fk_units_stake FOREIGN KEY (stake_id) REFERENCES stakes(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS users (
-  id CHAR(36) PRIMARY KEY,
-  google_id VARCHAR(255) UNIQUE NULL,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  nombre VARCHAR(255) NOT NULL,
-  foto_url VARCHAR(512) NULL,
-  stake_id INT NOT NULL,
-  unit_id INT NOT NULL,
-  timezone VARCHAR(64) NOT NULL,
+  type ENUM('stake','ward','branch') NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  parent_unit_id INT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
-  deleted_at DATETIME NULL,
-  INDEX idx_users_unit (stake_id, unit_id),
-  CONSTRAINT fk_users_stake FOREIGN KEY (stake_id) REFERENCES stakes(id),
-  CONSTRAINT fk_users_unit FOREIGN KEY (unit_id) REFERENCES units(id)
+  INDEX idx_units_parent (parent_unit_id),
+  CONSTRAINT fk_units_parent FOREIGN KEY (parent_unit_id) REFERENCES units(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS sessions (
-  id CHAR(36) PRIMARY KEY,
-  user_id CHAR(36) NOT NULL,
-  token VARCHAR(255) UNIQUE NOT NULL,
-  device_info VARCHAR(255) NULL,
-  created_at DATETIME NOT NULL,
-  revoked_at DATETIME NULL,
-  INDEX idx_sessions_user (user_id),
-  CONSTRAINT fk_sessions_user FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS service_areas (
+CREATE TABLE IF NOT EXISTS organizations (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  nivel ENUM('estaca','barrio','rama') NOT NULL,
-  nombre VARCHAR(255) NOT NULL,
-  es_solo_solapamiento BOOLEAN NOT NULL DEFAULT FALSE,
-  orden INT NOT NULL DEFAULT 0,
-  INDEX idx_service_areas_nivel (nivel)
+  scope_type ENUM('stake','ward','branch') NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE KEY uq_org_scope_name (scope_type, name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS callings (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  service_area_id INT NOT NULL,
-  nombre VARCHAR(255) NOT NULL,
-  es_presidente BOOLEAN NOT NULL DEFAULT FALSE,
-  es_aprobador_unidad BOOLEAN NOT NULL DEFAULT FALSE,
-  created_by CHAR(36) NULL,
-  created_at DATETIME NULL,
-  INDEX idx_callings_area (service_area_id),
-  CONSTRAINT fk_callings_area FOREIGN KEY (service_area_id) REFERENCES service_areas(id)
+  organization_id INT NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  authority_scope ENUM('none','area','unit','stake') NOT NULL DEFAULT 'none',
+  can_interview TINYINT(1) NOT NULL DEFAULT 0,
+  sort_order INT NOT NULL DEFAULT 0,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE KEY uq_calling_org_name (organization_id, name),
+  CONSTRAINT fk_callings_org FOREIGN KEY (organization_id) REFERENCES organizations(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS calling_overlaps (
+CREATE TABLE IF NOT EXISTS work_area_templates (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  scope_type ENUM('personal','stake','ward','branch') NOT NULL,
+  organization_id INT NULL,
+  name VARCHAR(160) NOT NULL,
+  is_personal BOOLEAN NOT NULL DEFAULT FALSE,
+  has_interviews TINYINT(1) NOT NULL DEFAULT 0,
+  has_ministering TINYINT(1) NOT NULL DEFAULT 0,
+  sort_order INT NOT NULL DEFAULT 0,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  CONSTRAINT fk_area_template_org FOREIGN KEY (organization_id) REFERENCES organizations(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS calling_work_area_rules (
   id INT AUTO_INCREMENT PRIMARY KEY,
   calling_id INT NOT NULL,
-  service_area_id INT NOT NULL,
-  UNIQUE KEY uq_calling_overlap (calling_id, service_area_id),
-  CONSTRAINT fk_overlap_calling FOREIGN KEY (calling_id) REFERENCES callings(id),
-  CONSTRAINT fk_overlap_area FOREIGN KEY (service_area_id) REFERENCES service_areas(id)
+  work_area_template_id INT NOT NULL,
+  access_role ENUM('member','manager') NOT NULL DEFAULT 'member',
+  UNIQUE KEY uq_calling_area_rule (calling_id, work_area_template_id),
+  CONSTRAINT fk_rule_calling FOREIGN KEY (calling_id) REFERENCES callings(id),
+  CONSTRAINT fk_rule_area_template FOREIGN KEY (work_area_template_id) REFERENCES work_area_templates(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS calling_approvers (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  calling_id INT NOT NULL,
-  approver_calling_id INT NOT NULL,
-  UNIQUE KEY uq_calling_approver (calling_id, approver_calling_id),
-  CONSTRAINT fk_calling_approvers_calling FOREIGN KEY (calling_id) REFERENCES callings(id),
-  CONSTRAINT fk_calling_approvers_approver FOREIGN KEY (approver_calling_id) REFERENCES callings(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS service_area_instances (
+CREATE TABLE IF NOT EXISTS work_area_instances (
   id CHAR(36) PRIMARY KEY,
-  service_area_id INT NULL,
+  template_id INT NOT NULL,
   unit_id INT NULL,
-  stake_id INT NULL,
   owner_user_id CHAR(36) NULL,
-  es_personal BOOLEAN NOT NULL DEFAULT FALSE,
-  nombre VARCHAR(255) NOT NULL,
+  name VARCHAR(160) NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
-  deleted_at DATETIME NULL,
-  INDEX idx_area_instance_unit (service_area_id, unit_id),
-  INDEX idx_area_instance_owner (owner_user_id),
-  CONSTRAINT fk_area_instance_area FOREIGN KEY (service_area_id) REFERENCES service_areas(id),
+  UNIQUE KEY uq_area_instance (template_id, unit_id, owner_user_id),
+  INDEX idx_area_instances_unit (unit_id),
+  CONSTRAINT fk_area_instance_template FOREIGN KEY (template_id) REFERENCES work_area_templates(id),
   CONSTRAINT fk_area_instance_unit FOREIGN KEY (unit_id) REFERENCES units(id),
-  CONSTRAINT fk_area_instance_stake FOREIGN KEY (stake_id) REFERENCES stakes(id),
   CONSTRAINT fk_area_instance_owner FOREIGN KEY (owner_user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -110,205 +86,116 @@ CREATE TABLE IF NOT EXISTS user_callings (
   id CHAR(36) PRIMARY KEY,
   user_id CHAR(36) NOT NULL,
   calling_id INT NOT NULL,
-  unit_id INT NULL,
-  stake_id INT NULL,
-  created_at DATETIME NOT NULL,
-  deleted_at DATETIME NULL,
-  INDEX idx_user_callings_user (user_id),
-  CONSTRAINT fk_user_callings_user FOREIGN KEY (user_id) REFERENCES users(id),
-  CONSTRAINT fk_user_callings_calling FOREIGN KEY (calling_id) REFERENCES callings(id),
-  CONSTRAINT fk_user_callings_unit FOREIGN KEY (unit_id) REFERENCES units(id),
-  CONSTRAINT fk_user_callings_stake FOREIGN KEY (stake_id) REFERENCES stakes(id)
+  unit_id INT NOT NULL,
+  status ENUM('pending','active','rejected','removed') NOT NULL DEFAULT 'pending',
+  requested_at DATETIME NOT NULL,
+  resolved_by CHAR(36) NULL,
+  resolved_at DATETIME NULL,
+  CONSTRAINT fk_user_calling_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_user_calling_calling FOREIGN KEY (calling_id) REFERENCES callings(id),
+  CONSTRAINT fk_user_calling_unit FOREIGN KEY (unit_id) REFERENCES units(id),
+  CONSTRAINT fk_user_calling_resolver FOREIGN KEY (resolved_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS area_members (
+CREATE TABLE IF NOT EXISTS work_area_members (
   id CHAR(36) PRIMARY KEY,
-  area_instance_id CHAR(36) NOT NULL,
+  work_area_id CHAR(36) NOT NULL,
   user_id CHAR(36) NOT NULL,
-  rol ENUM('miembro','propietario') NOT NULL DEFAULT 'miembro',
-  estado ENUM('pendiente','activo','rechazado') NOT NULL DEFAULT 'pendiente',
-  origen ENUM('llamamiento','solapamiento','invitacion') NOT NULL,
   user_calling_id CHAR(36) NULL,
+  role ENUM('member','manager','owner') NOT NULL DEFAULT 'member',
+  status ENUM('pending','active','rejected','removed') NOT NULL DEFAULT 'pending',
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
-  deleted_at DATETIME NULL,
-  UNIQUE KEY uq_area_member_user (area_instance_id, user_id, user_calling_id),
+  UNIQUE KEY uq_area_member_calling (work_area_id, user_id, user_calling_id),
   INDEX idx_area_members_user (user_id),
-  INDEX idx_area_members_state (area_instance_id, estado),
-  CONSTRAINT fk_area_members_area FOREIGN KEY (area_instance_id) REFERENCES service_area_instances(id),
-  CONSTRAINT fk_area_members_user FOREIGN KEY (user_id) REFERENCES users(id),
-  CONSTRAINT fk_area_members_calling FOREIGN KEY (user_calling_id) REFERENCES user_callings(id)
+  CONSTRAINT fk_area_member_area FOREIGN KEY (work_area_id) REFERENCES work_area_instances(id),
+  CONSTRAINT fk_area_member_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_area_member_calling FOREIGN KEY (user_calling_id) REFERENCES user_callings(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS service_access_requests (
+CREATE TABLE IF NOT EXISTS access_requests (
   id CHAR(36) PRIMARY KEY,
-  user_id CHAR(36) NOT NULL,
-  area_instance_id CHAR(36) NOT NULL,
   user_calling_id CHAR(36) NOT NULL,
-  estado ENUM('pendiente','aprobada','rechazada') NOT NULL DEFAULT 'pendiente',
+  status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  requested_at DATETIME NOT NULL,
   resolved_by CHAR(36) NULL,
-  created_at DATETIME NOT NULL,
   resolved_at DATETIME NULL,
-  INDEX idx_access_requests_area (area_instance_id, estado),
-  CONSTRAINT fk_access_user FOREIGN KEY (user_id) REFERENCES users(id),
-  CONSTRAINT fk_access_area FOREIGN KEY (area_instance_id) REFERENCES service_area_instances(id),
-  CONSTRAINT fk_access_calling FOREIGN KEY (user_calling_id) REFERENCES user_callings(id),
-  CONSTRAINT fk_access_resolver FOREIGN KEY (resolved_by) REFERENCES users(id)
+  CONSTRAINT fk_access_request_calling FOREIGN KEY (user_calling_id) REFERENCES user_callings(id),
+  CONSTRAINT fk_access_request_resolver FOREIGN KEY (resolved_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS tasks (
   id CHAR(36) PRIMARY KEY,
-  area_instance_id CHAR(36) NOT NULL,
-  creador_id CHAR(36) NOT NULL,
-  responsable_id CHAR(36) NULL,
-  titulo VARCHAR(255) NOT NULL,
-  descripcion TEXT NULL,
-  fecha_inicio DATE NULL,
-  fecha_vencimiento DATE NULL,
-  estado ENUM('pendiente','en_progreso','completada') NOT NULL DEFAULT 'pendiente',
+  work_area_id CHAR(36) NOT NULL,
+  title VARCHAR(220) NOT NULL,
+  description TEXT NULL,
+  start_date DATE NULL,
+  due_date DATE NULL,
+  status ENUM('pending','in_progress','done') NOT NULL DEFAULT 'pending',
+  assigned_to CHAR(36) NULL,
+  created_by CHAR(36) NOT NULL,
+  updated_by CHAR(36) NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   deleted_at DATETIME NULL,
-  INDEX idx_tasks_area (area_instance_id, deleted_at),
-  INDEX idx_tasks_responsable (responsable_id),
-  CONSTRAINT fk_tasks_area FOREIGN KEY (area_instance_id) REFERENCES service_area_instances(id),
-  CONSTRAINT fk_tasks_creator FOREIGN KEY (creador_id) REFERENCES users(id),
-  CONSTRAINT fk_tasks_responsable FOREIGN KEY (responsable_id) REFERENCES users(id)
+  INDEX idx_tasks_area (work_area_id, deleted_at),
+  CONSTRAINT fk_tasks_area FOREIGN KEY (work_area_id) REFERENCES work_area_instances(id),
+  CONSTRAINT fk_tasks_assigned FOREIGN KEY (assigned_to) REFERENCES users(id),
+  CONSTRAINT fk_tasks_creator FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_tasks_updater FOREIGN KEY (updated_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS subtasks (
-  id CHAR(36) PRIMARY KEY,
-  task_id CHAR(36) NOT NULL,
-  titulo VARCHAR(255) NOT NULL,
-  descripcion TEXT NULL,
-  fecha_inicio DATE NULL,
-  fecha_fin DATE NULL,
-  estado ENUM('pendiente','en_progreso','completada') NOT NULL DEFAULT 'pendiente',
+CREATE TABLE IF NOT EXISTS interviews (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  work_area_id CHAR(36) NOT NULL,
+  interviewee VARCHAR(220) NOT NULL,
+  scheduled_date DATE NOT NULL,
+  scheduled_time TIME NULL,
+  interviewer_id CHAR(36) NULL,
+  notes TEXT NULL,
+  completed TINYINT(1) NOT NULL DEFAULT 0,
+  completed_at DATETIME NULL,
+  created_by CHAR(36) NOT NULL,
+  updated_by CHAR(36) NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   deleted_at DATETIME NULL,
-  INDEX idx_subtasks_task (task_id),
-  CONSTRAINT fk_subtasks_task FOREIGN KEY (task_id) REFERENCES tasks(id)
+  INDEX idx_interviews_area (work_area_id, deleted_at),
+  CONSTRAINT fk_interviews_area FOREIGN KEY (work_area_id) REFERENCES work_area_instances(id),
+  CONSTRAINT fk_interviews_interviewer FOREIGN KEY (interviewer_id) REFERENCES users(id),
+  CONSTRAINT fk_interviews_creator FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_interviews_updater FOREIGN KEY (updated_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS ministering_pairs (
-  id CHAR(36) PRIMARY KEY,
-  area_instance_id CHAR(36) NOT NULL,
-  integrante_1 VARCHAR(255) NOT NULL,
-  integrante_2 VARCHAR(255) NOT NULL,
-  responsable_id CHAR(36) NULL,
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  work_area_id CHAR(36) NOT NULL,
+  minister1 VARCHAR(220) NOT NULL,
+  minister2 VARCHAR(220) NULL,
+  assigned_to VARCHAR(220) NOT NULL,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_by CHAR(36) NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   deleted_at DATETIME NULL,
-  INDEX idx_pairs_area (area_instance_id),
-  INDEX idx_pairs_responsable (responsable_id),
-  CONSTRAINT fk_pairs_area FOREIGN KEY (area_instance_id) REFERENCES service_area_instances(id),
-  CONSTRAINT fk_pairs_responsable FOREIGN KEY (responsable_id) REFERENCES users(id)
+  INDEX idx_min_pairs_area (work_area_id, active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS ministering_interviews (
-  id CHAR(36) PRIMARY KEY,
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  work_area_id CHAR(36) NOT NULL,
   pair_id CHAR(36) NOT NULL,
-  estado ENUM('agendada','realizada') NOT NULL,
-  agendada_para DATETIME NULL,
-  agendada_por CHAR(36) NULL,
-  fecha_realizada DATE NULL,
-  trimestre CHAR(7) NULL,
+  quarter CHAR(7) NOT NULL,
+  scheduled_date DATE NULL,
+  scheduled_time TIME NULL,
+  interviewer_id CHAR(36) NULL,
+  notes TEXT NULL,
+  completed TINYINT(1) NOT NULL DEFAULT 0,
+  completed_at DATETIME NULL,
+  created_by CHAR(36) NOT NULL,
+  updated_by CHAR(36) NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   deleted_at DATETIME NULL,
-  INDEX idx_interviews_pair_quarter (pair_id, trimestre),
-  INDEX idx_interviews_state (estado),
-  CONSTRAINT fk_interviews_pair FOREIGN KEY (pair_id) REFERENCES ministering_pairs(id),
-  CONSTRAINT fk_interviews_scheduler FOREIGN KEY (agendada_por) REFERENCES users(id)
+  INDEX idx_min_interviews_pair (pair_id, quarter)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS leadership_interviews (
-  id CHAR(36) PRIMARY KEY,
-  area_instance_id CHAR(36) NOT NULL,
-  creador_id CHAR(36) NOT NULL,
-  persona VARCHAR(255) NOT NULL,
-  motivo VARCHAR(255) NULL,
-  fecha_objetivo DATETIME NULL,
-  estado ENUM('pendiente','realizada') NOT NULL DEFAULT 'pendiente',
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NOT NULL,
-  deleted_at DATETIME NULL,
-  INDEX idx_leadership_area_state (area_instance_id, estado),
-  CONSTRAINT fk_leadership_area FOREIGN KEY (area_instance_id) REFERENCES service_area_instances(id),
-  CONSTRAINT fk_leadership_creator FOREIGN KEY (creador_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS invitations (
-  id CHAR(36) PRIMARY KEY,
-  area_instance_id CHAR(36) NOT NULL,
-  invitado_por CHAR(36) NOT NULL,
-  email VARCHAR(255) NOT NULL,
-  invited_user_id CHAR(36) NULL,
-  token VARCHAR(255) UNIQUE NULL,
-  estado ENUM('pendiente','aceptada','rechazada','expirada') NOT NULL DEFAULT 'pendiente',
-  expira_en DATETIME NULL,
-  created_at DATETIME NOT NULL,
-  resolved_at DATETIME NULL,
-  CONSTRAINT fk_invitations_area FOREIGN KEY (area_instance_id) REFERENCES service_area_instances(id),
-  CONSTRAINT fk_invitations_sender FOREIGN KEY (invitado_por) REFERENCES users(id),
-  CONSTRAINT fk_invitations_user FOREIGN KEY (invited_user_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS notifications (
-  id CHAR(36) PRIMARY KEY,
-  user_id CHAR(36) NOT NULL,
-  tipo VARCHAR(64) NOT NULL,
-  titulo VARCHAR(255) NOT NULL,
-  cuerpo TEXT NULL,
-  data JSON NULL,
-  leida BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at DATETIME NOT NULL,
-  INDEX idx_notifications_user (user_id, leida),
-  CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS push_subscriptions (
-  id CHAR(36) PRIMARY KEY,
-  user_id CHAR(36) NOT NULL,
-  endpoint VARCHAR(512) NOT NULL,
-  p256dh VARCHAR(255) NOT NULL,
-  auth VARCHAR(255) NOT NULL,
-  created_at DATETIME NOT NULL,
-  deleted_at DATETIME NULL,
-  CONSTRAINT fk_push_user FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS sync_queue (
-  id CHAR(36) PRIMARY KEY,
-  user_id CHAR(36) NOT NULL,
-  entidad VARCHAR(64) NOT NULL,
-  entidad_id CHAR(36) NOT NULL,
-  operacion ENUM('crear','editar','eliminar') NOT NULL,
-  payload JSON NULL,
-  client_timestamp DATETIME NOT NULL,
-  server_timestamp DATETIME NULL,
-  estado ENUM('pendiente','aplicado','conflicto') NOT NULL DEFAULT 'pendiente',
-  CONSTRAINT fk_sync_user FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS audit_log (
-  id CHAR(36) PRIMARY KEY,
-  user_id CHAR(36) NULL,
-  accion VARCHAR(128) NOT NULL,
-  entidad VARCHAR(64) NULL,
-  entidad_id CHAR(36) NULL,
-  metadata JSON NULL,
-  created_at DATETIME NOT NULL,
-  INDEX idx_audit_user (user_id),
-  INDEX idx_audit_entity (entidad, entidad_id),
-  CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT INTO stakes (id, tipo, nombre, created_at)
-VALUES (1, 'estaca', 'Estaca Demo', UTC_TIMESTAMP())
-ON DUPLICATE KEY UPDATE nombre = VALUES(nombre);
-
-INSERT INTO units (id, stake_id, tipo, nombre, created_at)
-VALUES (1, 1, 'barrio', 'Barrio Demo', UTC_TIMESTAMP())
-ON DUPLICATE KEY UPDATE nombre = VALUES(nombre);

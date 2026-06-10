@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1E3A8A">
+    <title>Mi Llamamiento</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body>
+    <div class="bg-blobs" aria-hidden="true"><span></span><span></span><span></span></div>
+
+    <section id="authView" class="auth-view">
+      <form id="loginForm" class="auth-card">
+        <img class="brand-mark" src="/assets/icons/logo.svg" alt="Mi Llamamiento">
+        <h1>Mi Llamamiento</h1>
+        <p>Gestiona tareas por área de trabajo.</p>
+        <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        <label>Contraseña<input name="password" type="password" required autocomplete="current-password"></label>
+        <button type="submit" class="primary">Entrar</button>
+        <button id="showRegister" type="button" class="link">¿Aún no tienes usuario?</button>
+        <span id="loginStatus" class="status"></span>
+      </form>
+
+      <form id="registerForm" class="auth-card hidden">
+        <img class="brand-mark" src="/assets/icons/logo.svg" alt="Mi Llamamiento">
+        <h1>Crear usuario</h1>
+        <p>Luego podrás seleccionar tu llamamiento.</p>
+        <label>Nombre<input name="name" required autocomplete="name"></label>
+        <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        <label>Contraseña<input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+        <button type="submit" class="primary">Registrarme</button>
+        <button id="showLogin" type="button" class="link">Ya tengo usuario</button>
+        <span id="registerStatus" class="status"></span>
+      </form>
+    </section>
+
+    <div id="appShell" class="app-shell hidden">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-mark" src="/assets/icons/logo.svg" alt="Mi Llamamiento">
+          <div>
+            <strong>Mi Llamamiento</strong>
+            <span id="userLabel"></span>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+
+        <div class="panel area-card" id="sharedAreaCard">
+          <div class="area-picker" id="areaPicker">
+            <button type="button" class="area-tag" id="areaTag">
+              <div class="area-tag-info">
+                <span class="area-card-label">Área de Servicio</span>
+                <span id="areaTagName" class="area-tag-name-text">Sin área seleccionada</span>
+                <span id="areaTagUnit" class="area-tag-unit-text" style="display:none"></span>
+              </div>
+              <svg class="area-change-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+            </button>
+            <div class="area-options hidden" id="areaOptions"></div>
+          </div>
+          <p class="area-hint">¿No encuentras el área que buscas? <button type="button" class="link-btn" id="goToProfileBtn">Revisa tus llamamientos</button></p>
+        </div>
+
+        <section id="tasksView" class="view active-view">
+
+          <div class="stats-row" id="taskStats">
+            <div class="stat-tile stat-pending">
+              <span class="stat-value" id="statPending">0</span>
+              <span class="stat-label">Pendientes</span>
+            </div>
+            <div class="stat-tile stat-progress">
+              <span class="stat-value" id="statProgress">0</span>
+              <span class="stat-label">En curso</span>
+            </div>
+            <div class="stat-tile stat-done">
+              <span class="stat-value" id="statDone">0</span>
+              <span class="stat-label">Hechas</span>
+            </div>
+          </div>
+
+          <div class="panel task-panel">
+            <div class="section-head">
+              <div>
+                <h2>Tareas</h2>
+              </div>
+              <button id="newTaskBtn" class="primary small">Nueva</button>
+            </div>
+            <div class="task-tabs" role="tablist" aria-label="Filtro de tareas">
+              <span class="tabs-indicator" aria-hidden="true"></span>
+              <button class="active" type="button" data-task-filter="open">Pendientes</button>
+              <button type="button" data-task-filter="done">Finalizadas</button>
+            </div>
+            <div id="taskList" class="list"></div>
+          </div>
+        </section>
+
+        <section id="profileView" class="view">
+          <div class="panel">
+            <div class="section-head">
+              <div>
+                <h2>Perfil</h2>
+                <p>Datos de cuenta y seguridad.</p>
+              </div>
+            </div>
+            <form id="profileForm" class="stack">
+              <label>Nombre<input name="name" required autocomplete="name"></label>
+              <label>Email<input name="email" type="email" required autocomplete="email"></label>
+              <label>Contraseña actual<input name="current_password" type="password" autocomplete="current-password"></label>
+              <label>Nueva contraseña<input name="new_password" type="password" minlength="8" autocomplete="new-password"></label>
+              <div class="form-actions">
+                <button class="primary" type="submit">Guardar perfil</button>
+                <span id="profileStatus" class="status"></span>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <div class="section-head">
+              <div>
+                <h2>Llamamientos</h2>
+                <p>Los cambios requieren aprobación según la esfera correspondiente.</p>
+              </div>
+              <button id="showCallingFormBtn" class="secondary small" type="button">Agregar</button>
+            </div>
+            <div id="userCallingList" class="list"></div>
+            <form id="callingForm" class="stack divided hidden">
+              <label>Ámbito
+                <select name="scope_type" id="scopeSelect">
+                  <option value="stake">Estaca</option>
+                  <option value="ward">Barrio</option>
+                  <option value="branch">Rama</option>
+                </select>
+              </label>
+              <label id="unitLabel">Unidad<select name="unit_id" id="unitSelect"></select></label>
+              <label>Organización<select name="organization_id" id="organizationSelect"></select></label>
+              <label>Llamamiento<select name="calling_id" id="callingSelect"></select></label>
+              <div class="form-actions">
+                <button class="primary" type="submit">Enviar solicitud</button>
+                <button id="cancelCallingFormBtn" class="ghost" type="button">Cancelar</button>
+                <span id="callingStatus" class="status"></span>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <button id="logoutBtn" class="danger" type="button">Cerrar sesión</button>
+          </div>
+        </section>
+
+        <section id="interviewsView" class="view">
+          <div class="panel">
+            <div class="section-head">
+              <div><h2>Entrevistas</h2></div>
+              <button id="addInterviewBtn" class="primary small" type="button">Nueva</button>
+              <button id="addPairBtn" class="primary small hidden" type="button">Nueva pareja</button>
+            </div>
+
+            <div class="task-tabs" id="interviewSubTabs" role="tablist" aria-label="Tipo de entrevistas">
+              <span class="tabs-indicator" aria-hidden="true"></span>
+              <button class="active" type="button" data-interview-tab="calling">Individuales</button>
+              <button type="button" data-interview-tab="ministering">Ministración</button>
+            </div>
+
+            <div id="callingInterviewsPanel">
+              <div class="interview-filter-row">
+                <div class="filter-segs" id="interviewFilterSegs">
+                  <span class="tabs-indicator" aria-hidden="true"></span>
+                  <button class="active" type="button" data-interview-filter="upcoming">Pendientes</button>
+                  <button type="button" data-interview-filter="done">Realizadas</button>
+                </div>
+                <label class="my-interviews-toggle">
+                  <input type="checkbox" id="myInterviewsOnly">
+                  <span>Solo mis entrevistas</span>
+                </label>
+              </div>
+              <div id="interviewList" class="list"></div>
+            </div>
+
+            <div id="ministeringPanel" class="hidden">
+              <div class="quarter-nav">
+                <button type="button" class="quarter-nav-btn" id="prevQuarterBtn" aria-label="Trimestre anterior">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <span id="quarterLabel" class="quarter-label"></span>
+                <button type="button" class="quarter-nav-btn" id="nextQuarterBtn" aria-label="Trimestre siguiente">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </div>
+              <div class="interview-filter-row">
+                <div class="filter-segs" id="minFilterSegs">
+                  <span class="tabs-indicator" aria-hidden="true"></span>
+                  <button class="active" type="button" data-min-filter="upcoming">Pendientes</button>
+                  <button type="button" data-min-filter="done">Realizadas</button>
+                </div>
+                <label class="my-interviews-toggle">
+                  <input type="checkbox" id="myMinisteringOnly">
+                  <span>Solo las mías</span>
+                </label>
+              </div>
+              <div id="pairList" class="list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="settingsView" class="view">
+          <div id="settingsHome" class="settings-screen">
+            <div class="panel">
+              <div class="section-head">
+                <div>
+                  <h2>Configuraciones</h2>
+                  <p>Administración y aprobaciones.</p>
+                </div>
+              </div>
+              <div class="config-grid">
+                <button class="config-tile" type="button" data-settings-screen="requestsScreen">
+                  <strong>Solicitudes</strong>
+                  <span>Aprobar o rechazar accesos pendientes.</span>
+                </button>
+                <button class="config-tile stake-admin-only hidden" type="button" data-settings-screen="organizationsScreen">
+                  <strong>Organizaciones</strong>
+                  <span>Catálogo por estaca, barrio y rama.</span>
+                </button>
+                <button class="config-tile stake-admin-only hidden" type="button" data-settings-screen="unitsScreen">
+                  <strong>Unidades</strong>
+                  <span>Estaca, barrios y ramas disponibles.</span>
+                </button>
+                <button class="config-tile stake-admin-only hidden" type="button" data-settings-screen="callingsScreen">
+                  <strong>Llamamientos</strong>
+                  <span>Cargos, orden y nivel de autoridad.</span>
+                </button>
+                <button class="config-tile stake-admin-only hidden" type="button" data-settings-screen="areasScreen">
+                  <strong>Áreas de trabajo</strong>
+                  <span>Plantillas que se crean por ámbito y unidad.</span>
+                </button>
+                <button class="config-tile stake-admin-only hidden" type="button" data-settings-screen="rulesScreen">
+                  <strong>Matriz de acceso</strong>
+                  <span>Qué áreas recibe cada llamamiento.</span>
+                </button>
+              </div>
+              <p id="settingsAdminHint" class="status"></p>
+            </div>
+          </div>
+
+          <div id="requestsScreen" class="settings-screen hidden">
+            <button class="back-btn" type="button" data-settings-screen="settingsHome">Configuraciones</button>
+            <div class="panel">
+              <div class="section-head">
+                <div>
+                  <h2>Solicitudes</h2>
+                  <p>Aprobaciones disponibles para tu esfera.</p>
+                </div>
+              </div>
+              <div id="requestList" class="list"></div>
+            </div>
+          </div>
+
+          <div id="organizationsScreen" class="settings-screen hidden stake-admin-only">
+            <button class="back-btn" type="button" data-settings-screen="settingsHome">Configuraciones</button>
+            <div class="panel">
+              <div class="section-head">
+                <div><h2>Organizaciones</h2><p>Define los grupos disponibles por ámbito.</p></div>
+                <button class="secondary small" type="button" data-show-admin-form="organizationForm">Agregar</button>
+              </div>
+              <form id="organizationForm" class="admin-form hidden">
+                <input type="hidden" name="id">
+                <label>Ámbito<select name="scope_type"><option value="stake">Estaca</option><option value="ward">Barrio</option><option value="branch">Rama</option></select></label>
+                <label>Nombre<input name="name" required></label>
+                <label>Orden<input name="sort_order" type="number" min="0" value="99"></label>
+                <label class="check"><input name="active" type="checkbox" checked> Activa</label>
+                <button class="primary" type="submit">Guardar</button>
+                <button class="ghost" type="button" data-hide-admin-form="organizationForm">Cancelar</button>
+              </form>
+              <div id="organizationList" class="admin-list"></div>
+            </div>
+          </div>
+
+          <div id="unitsScreen" class="settings-screen hidden stake-admin-only">
+            <button class="back-btn" type="button" data-settings-screen="settingsHome">Configuraciones</button>
+            <div class="panel">
+              <div class="section-head">
+                <div><h2>Unidades</h2><p>Administra la estaca, sus barrios y ramas.</p></div>
+                <button class="secondary small" type="button" data-show-admin-form="unitForm">Agregar</button>
+              </div>
+              <form id="unitForm" class="admin-form hidden">
+                <input type="hidden" name="id">
+                <label>Tipo
+                  <select name="type">
+                    <option value="stake">Estaca</option>
+                    <option value="ward">Barrio</option>
+                    <option value="branch">Rama</option>
+                  </select>
+                </label>
+                <label>Unidad superior<select name="parent_unit_id"></select></label>
+                <label>Nombre<input name="name" required></label>
+                <label class="check"><input name="active" type="checkbox" checked> Activa</label>
+                <button class="primary" type="submit">Guardar</button>
+                <button class="ghost" type="button" data-hide-admin-form="unitForm">Cancelar</button>
+              </form>
+              <div id="unitList" class="admin-list"></div>
+            </div>
+          </div>
+
+          <div id="callingsScreen" class="settings-screen hidden stake-admin-only">
+            <button class="back-btn" type="button" data-settings-screen="settingsHome">Configuraciones</button>
+            <div class="panel">
+              <div class="section-head">
+                <div><h2>Llamamientos</h2><p>Configura cargos y autoridad de aprobación.</p></div>
+                <button class="secondary small" type="button" data-show-admin-form="adminCallingForm">Agregar</button>
+              </div>
+              <form id="adminCallingForm" class="admin-form hidden">
+                <input type="hidden" name="id">
+                <label>Organización<select name="organization_id"></select></label>
+                <label>Nombre<input name="name" required></label>
+                <label>Autoridad<select name="authority_scope"><option value="none">Sin autoridad</option><option value="area">Área</option><option value="unit">Unidad</option><option value="stake">Estaca</option></select></label>
+                <label>Orden<input name="sort_order" type="number" min="0" value="99"></label>
+                <label class="check"><input name="active" type="checkbox" checked> Activo</label>
+                <button class="primary" type="submit">Guardar</button>
+                <button class="ghost" type="button" data-hide-admin-form="adminCallingForm">Cancelar</button>
+              </form>
+              <div id="adminCallingList" class="admin-list"></div>
+            </div>
+          </div>
+
+          <div id="areasScreen" class="settings-screen hidden stake-admin-only">
+            <button class="back-btn" type="button" data-settings-screen="settingsHome">Configuraciones</button>
+            <div class="panel">
+              <div class="section-head">
+                <div><h2>Áreas de trabajo</h2><p>Plantillas que se instancian por unidad o usuario.</p></div>
+                <button class="secondary small" type="button" data-show-admin-form="areaTemplateForm">Agregar</button>
+              </div>
+              <form id="areaTemplateForm" class="admin-form hidden">
+                <input type="hidden" name="id">
+                <label>Ámbito<select name="scope_type"><option value="personal">Personal</option><option value="stake">Estaca</option><option value="ward">Barrio</option><option value="branch">Rama</option></select></label>
+                <label>Organización<select name="organization_id"></select></label>
+                <label>Nombre<input name="name" required></label>
+                <label>Orden<input name="sort_order" type="number" min="0" value="99"></label>
+                <label class="check"><input name="is_personal" type="checkbox"> Personal</label>
+                <label class="check"><input name="active" type="checkbox" checked> Activa</label>
+                <button class="primary" type="submit">Guardar</button>
+                <button class="ghost" type="button" data-hide-admin-form="areaTemplateForm">Cancelar</button>
+              </form>
+              <div id="areaTemplateList" class="admin-list"></div>
+            </div>
+          </div>
+
+          <div id="rulesScreen" class="settings-screen hidden stake-admin-only">
+            <button class="back-btn" type="button" data-settings-screen="settingsHome">Configuraciones</button>
+            <div class="panel">
+              <div class="section-head">
+                <div><h2>Matriz de acceso</h2><p>Relaciona llamamientos con áreas de trabajo.</p></div>
+                <button class="secondary small" type="button" data-show-admin-form="ruleForm">Agregar</button>
+              </div>
+              <form id="ruleForm" class="admin-form hidden">
+                <input type="hidden" name="id">
+                <label>Llamamiento<select name="calling_id"></select></label>
+                <label>Área de trabajo<select name="work_area_template_id"></select></label>
+                <label>Rol<select name="access_role"><option value="member">Miembro</option><option value="manager">Administrador</option></select></label>
+                <button class="primary" type="submit">Guardar regla</button>
+                <button class="ghost" type="button" data-hide-admin-form="ruleForm">Cancelar</button>
+              </form>
+              <div id="ruleList" class="admin-list"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Menú principal">
+        <span class="nav-indicator" aria-hidden="true"></span>
+        <button type="button" data-nav="tasks">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          <span>Tareas</span>
+        </button>
+        <button type="button" data-nav="interviews">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+          <span>Entrevistas</span>
+        </button>
+        <button type="button" data-nav="profile">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/></svg>
+          <span>Perfil</span>
+        </button>
+        <button type="button" data-nav="settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/></svg>
+          <span>Ajustes</span>
+        </button>
+      </nav>
+
+      <dialog id="taskDialog">
+        <button type="button" class="dialog-close-btn" id="closeTaskBtn" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <button type="button" id="deleteTaskBtn" class="dialog-delete-btn hidden" aria-label="Eliminar tarea">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>
+          </svg>
+        </button>
+        <form id="taskForm" class="dialog-form">
+          <input type="hidden" name="id">
+          <input type="hidden" name="status" id="taskStatusInput" value="pending">
+          <input type="hidden" name="assigned_to" id="taskAssignedToInput" value="">
+
+          <div class="task-dialog-header">
+            <h2 class="task-title-display hidden" id="taskTitleDisplay"></h2>
+            <input class="task-title-input hidden" id="taskTitleInput" name="title" maxlength="220" placeholder="Nombre de la tarea">
+          </div>
+
+          <div class="task-meta-row">
+            <div class="responsible-picker" id="responsiblePicker">
+              <button type="button" class="responsible-tag" id="responsibleTag">
+                <span class="avatar" id="responsibleAvatar" style="display:none"></span>
+                <span class="responsible-tag-name" id="responsibleName">Sin responsable</span>
+              </button>
+              <div class="responsible-options hidden" id="responsibleOptions"></div>
+            </div>
+            <div class="status-picker" id="statusPicker">
+              <button class="status-tag status-pending" type="button" id="statusTag">Pendiente</button>
+              <div class="status-options hidden" id="statusOptions">
+                <button type="button" data-status="pending"><span class="status-dot dot-pending"></span>Pendiente</button>
+                <button type="button" data-status="in_progress"><span class="status-dot dot-in_progress"></span>En curso</button>
+                <button type="button" data-status="done"><span class="status-dot dot-done"></span>Hecha</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="task-dates-row">
+            <div class="task-date-field">
+              <span class="task-date-label">Inicio</span>
+              <span class="task-date-display no-date" id="startDateDisplay">Sin fecha</span>
+              <input class="task-date-input hidden" name="start_date" type="date" id="startDateInput">
+            </div>
+            <div class="task-date-field">
+              <span class="task-date-label">Vence</span>
+              <span class="task-date-display no-date" id="dueDateDisplay">Sin fecha</span>
+              <input class="task-date-input hidden" name="due_date" type="date" id="dueDateInput">
+            </div>
+          </div>
+
+          <textarea name="description" id="taskDescription" class="desc-textarea" placeholder="Añade una descripción..."></textarea>
+
+          <button type="button" id="saveNewTaskBtn" class="primary small hidden" style="justify-self:end">Guardar</button>
+        </form>
+      </dialog>
+
+      <dialog id="interviewDialog">
+        <button type="button" class="dialog-close-btn" id="closeInterviewBtn" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <button type="button" id="deleteInterviewBtn" class="dialog-delete-btn hidden" aria-label="Eliminar entrevista">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>
+          </svg>
+        </button>
+        <form id="interviewForm" class="dialog-form">
+          <input type="hidden" name="id">
+          <input type="hidden" name="interviewer_id" id="interviewerIdInput" value="">
+
+          <div class="task-dialog-header">
+            <h2>Entrevista</h2>
+          </div>
+
+          <label>Nombre del entrevistado
+            <input name="interviewee" id="intervieweeName" maxlength="220" placeholder="Nombre completo" autocomplete="off">
+          </label>
+
+          <div class="interview-datetime-row">
+            <label>Fecha<input name="scheduled_date" id="interviewDate" type="date"></label>
+            <label>Hora (opcional)<input name="scheduled_time" id="interviewTime" type="time"></label>
+          </div>
+
+          <div>
+            <span class="task-date-label">Entrevistador</span>
+            <div class="responsible-picker" id="interviewerPicker">
+              <button type="button" class="responsible-tag" id="interviewerTag">
+                <span class="avatar" id="interviewerAvatar" style="display:none"></span>
+                <span class="responsible-tag-name" id="interviewerName">Sin asignar</span>
+              </button>
+              <div class="responsible-options hidden" id="interviewerOptions"></div>
+            </div>
+          </div>
+
+          <div>
+            <textarea name="notes" id="interviewNotes" class="desc-textarea" placeholder="Notas de la entrevista..."></textarea>
+            <p class="notes-disclaimer">Las notas son visibles para todos los miembros del área. No incluyas información confidencial.</p>
+          </div>
+
+          <label class="completed-toggle">
+            <input type="checkbox" id="interviewCompletedCheck">
+            <span>Entrevista realizada</span>
+          </label>
+
+          <button type="button" id="saveNewInterviewBtn" class="primary small hidden" style="justify-self:end">Guardar</button>
+        </form>
+      </dialog>
+
+      <dialog id="pairDialog">
+        <button type="button" class="dialog-close-btn" id="closePairDialogBtn" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <button type="button" id="deletePairBtn" class="dialog-delete-btn hidden" aria-label="Eliminar pareja">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
+        </button>
+        <form id="pairForm" class="dialog-form">
+          <input type="hidden" name="id">
+          <div class="task-dialog-header"><h2 id="pairDialogTitle">Nueva pareja</h2></div>
+          <label>Ministrante 1
+            <input type="text" name="minister1" required placeholder="Nombre completo" autocomplete="off" maxlength="220">
+          </label>
+          <label>Ministrante 2 (opcional)
+            <input type="text" name="minister2" placeholder="Nombre completo" autocomplete="off" maxlength="220">
+          </label>
+          <label>Asignado a
+            <input type="text" name="assigned_to" required placeholder="Familia o persona" autocomplete="off" maxlength="220">
+          </label>
+          <button type="submit" class="primary small" style="justify-self:end;margin-top:4px">Guardar</button>
+        </form>
+      </dialog>
+
+      <dialog id="ministeringInterviewDialog">
+        <button type="button" class="dialog-close-btn" id="closeMinisteringInterviewBtn" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <form id="ministeringInterviewForm" class="dialog-form">
+          <input type="hidden" name="pair_id">
+          <input type="hidden" name="quarter">
+          <input type="hidden" name="interviewer_id" id="minInterviewerIdInput" value="">
+          <div class="task-dialog-header"><h2>Entrevista de ministración</h2></div>
+          <div id="minPairInfo" class="pair-info-chip"></div>
+          <div class="interview-datetime-row">
+            <label>Fecha<input name="scheduled_date" id="minInterviewDate" type="date"></label>
+            <label>Hora (opcional)<input name="scheduled_time" id="minInterviewTime" type="time"></label>
+          </div>
+          <div>
+            <span class="task-date-label">Entrevistador</span>
+            <div class="responsible-picker" id="minInterviewerPicker">
+              <button type="button" class="responsible-tag" id="minInterviewerTag">
+                <span class="avatar" id="minInterviewerAvatar" style="display:none"></span>
+                <span class="responsible-tag-name" id="minInterviewerName">Sin asignar</span>
+              </button>
+              <div class="responsible-options hidden" id="minInterviewerOptions"></div>
+            </div>
+          </div>
+          <div>
+            <textarea name="notes" id="minInterviewNotes" class="desc-textarea" placeholder="Notas de la entrevista..."></textarea>
+            <p class="notes-disclaimer">Las notas son visibles para todos los miembros del área. No incluyas información confidencial.</p>
+          </div>
+          <label class="completed-toggle">
+            <input type="checkbox" id="minInterviewCompletedCheck" name="completed">
+            <span>Entrevista realizada</span>
+          </label>
+        </form>
+      </dialog>
+
+      <dialog id="confirmDialog" class="confirm-dialog">
+        <div class="dialog-form">
+          <h2 id="confirmTitle">Confirmar</h2>
+          <p id="confirmMessage"></p>
+          <div class="confirm-actions">
+            <button type="button" id="confirmAcceptBtn" class="danger">Eliminar</button>
+            <button type="button" id="confirmCancelBtn" class="ghost">Cancelar</button>
+          </div>
+        </div>
+      </dialog>
+    </div>
+
+    <script type="module" src="/assets/js/app.js"></script>
+  </body>
+</html>

@@ -1,23 +1,24 @@
 <?php
 
-return [
-    'app_name' => 'Mi Llamamiento',
-    'env' => getenv('APP_ENV') ?: 'development',
-    'base_url' => getenv('APP_BASE_URL') ?: '',
+$config = [
+    'app' => [
+        'name' => 'Mi Llamamiento',
+        'env' => 'development',
+        'cookie_secure' => false,
+    ],
     'db' => [
-        'host' => getenv('DB_HOST') ?: '127.0.0.1',
-        'port' => getenv('DB_PORT') ?: '3306',
-        'name' => getenv('DB_DATABASE') ?: 'mi_llamamiento',
-        'user' => getenv('DB_USERNAME') ?: 'root',
-        'pass' => getenv('DB_PASSWORD') ?: '',
+        'host' => '127.0.0.1',
+        'port' => '3306',
+        'name' => 'mi_llamamiento',
+        'user' => 'root',
+        'pass' => '',
         'charset' => 'utf8mb4',
     ],
-    'auth' => [
-        'google_client_id' => getenv('GOOGLE_CLIENT_ID') ?: '',
-        'allow_dev_login' => (getenv('APP_ENV') ?: 'development') !== 'production',
-    ],
-    'push' => [
-        'vapid_public_key' => getenv('VAPID_PUBLIC_KEY') ?: '',
-        'vapid_private_key' => getenv('VAPID_PRIVATE_KEY') ?: '',
-    ],
 ];
+
+$local = __DIR__ . '/local.php';
+if (is_file($local)) {
+    $config = array_replace_recursive($config, require $local);
+}
+
+return $config;

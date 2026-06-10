@@ -9,30 +9,26 @@ class Request
 
     public static function path(): string
     {
-        $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-        $script = dirname($_SERVER['SCRIPT_NAME'] ?? '');
-        if ($script !== '/' && substr($uri, 0, strlen($script)) === $script) {
-            $uri = substr($uri, strlen($script));
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+        if ($scriptDir && $scriptDir !== '/' && str_starts_with($path, $scriptDir)) {
+            $path = substr($path, strlen($scriptDir)) ?: '/';
         }
-        return '/' . trim($uri, '/');
+        return '/' . trim($path, '/');
     }
 
     public static function json(): array
     {
-        $raw = file_get_contents('php://input');
-        if (!$raw) {
-            return [];
-        }
-        $decoded = json_decode($raw, true);
-        return is_array($decoded) ? $decoded : [];
+        $raw = file_get_contents('php://input') ?: '';
+        $data = json_decode($raw, true);
+        return is_array($data) ? $data : [];
     }
 
-    public static function bearerToken(): ?string
+    public static function input(): array
     {
-        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
-        if (preg_match('/Bearer\s+(.+)/i', $header, $matches)) {
-            return trim($matches[1]);
+        if (str_contains($_SERVER['CONTENT_TYPE'] ?? '', 'application/json')) {
+            return self::json();
         }
-        return null;
+        return $_POST;
     }
 }

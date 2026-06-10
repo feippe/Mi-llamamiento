@@ -1,0 +1,15 @@
+{
+  "name": "Mi Llamamiento",
+  "short_name": "Llamamiento",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef2fb",
+  "theme_color": "#1E3A8A",
+  "icons": [
+    {
+      "src": "/assets/icons/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

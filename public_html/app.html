@@ -71,7 +71,38 @@
           <p class="area-hint">¿No encuentras el área que buscas? <button type="button" class="link-btn" id="goToProfileBtn">Revisa tus llamamientos</button></p>
         </div>
 
-        <section id="tasksView" class="view active-view">
+        <section id="dashboardView" class="view active-view">
+          <div class="dash-stats">
+            <div class="stat-tile stat-pending">
+              <span class="stat-value" id="dashStatPending">0</span>
+              <span class="stat-label">Pendientes</span>
+            </div>
+            <div class="stat-tile stat-progress">
+              <span class="stat-value" id="dashStatProgress">0</span>
+              <span class="stat-label">En curso</span>
+            </div>
+            <div class="stat-tile stat-danger" id="dashStatOverdueTile">
+              <span class="stat-value" id="dashStatOverdue">0</span>
+              <span class="stat-label">Vencidas</span>
+            </div>
+            <div class="stat-tile stat-interviews">
+              <span class="stat-value" id="dashStatInterviews">0</span>
+              <span class="stat-label">Entrevistas</span>
+            </div>
+          </div>
+
+          <div class="panel task-panel">
+            <div class="task-tabs" role="tablist" aria-label="Vista del dashboard">
+              <span class="tabs-indicator" aria-hidden="true"></span>
+              <button class="active" type="button" data-dash-tab="tasks">Tareas</button>
+              <button type="button" data-dash-tab="interviews">Entrevistas</button>
+            </div>
+            <div id="dashTaskList" class="list"></div>
+            <div id="dashInterviewList" class="list hidden"></div>
+          </div>
+        </section>
+
+        <section id="tasksView" class="view">
 
           <div class="stats-row" id="taskStats">
             <div class="stat-tile stat-pending">
@@ -392,6 +423,10 @@
 
       <nav class="bottom-nav" aria-label="Menú principal">
         <span class="nav-indicator" aria-hidden="true"></span>
+        <button type="button" data-nav="dashboard">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>Inicio</span>
+        </button>
         <button type="button" data-nav="tasks">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
           <span>Tareas</span>

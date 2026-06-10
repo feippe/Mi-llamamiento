@@ -18,7 +18,9 @@ let state = {
   minFilter: 'upcoming',
   myMinisteringOnly: false,
   activeAreaId: null,
-  activeView: 'tasks',
+  activeView: 'dashboard',
+  dashTab: 'tasks',
+  dashboard: { tasks: [], interviews: [] },
   taskFilter: 'open',
   myTasksOnly: true,
   interviewFilter: 'upcoming',
@@ -70,6 +72,7 @@ function wireEvents() {
   $('#goToProfileBtn').addEventListener('click', () => showView('profile'));
   $('#saveNewTaskBtn').addEventListener('click', closeTaskDialog);
   $('#newTaskBtn').addEventListener('click', () => openTaskDialog());
+  $$('[data-dash-tab]').forEach(button => button.addEventListener('click', () => setDashTab(button.dataset.dashTab)));
   $$('[data-task-filter]').forEach(button => button.addEventListener('click', () => setTaskFilter(button.dataset.taskFilter)));
   $('#myTasksOnly').addEventListener('change', () => { state.myTasksOnly = $('#myTasksOnly').checked; renderTasks(); renderTaskStats(); });
   $('#taskForm').addEventListener('submit', e => e.preventDefault());
@@ -221,7 +224,7 @@ async function enterApp() {
   await loadAreas();
   await loadUserCallings();
   renderAdminVisibility();
-  showView('tasks');
+  showView('dashboard');
 }
 
 function showAuth() {
@@ -243,6 +246,10 @@ async function showView(view) {
   moveIndicator($('.bottom-nav'), $('.nav-indicator'), $('.bottom-nav button.active'));
   const showAreaCard = view === 'tasks' || view === 'interviews';
   $('#sharedAreaCard').classList.toggle('hidden', !showAreaCard);
+  if (view === 'dashboard') {
+    await loadDashboard();
+    moveIndicator($('#dashboardView .task-tabs'), $('#dashboardView .tabs-indicator'), $('#dashboardView .task-tabs button.active'));
+  }
   if (view === 'profile') {
     await loadProfile();
     await loadUserCallings();
@@ -426,9 +433,9 @@ function pickArea(id, name, unit) {
   const hasInterviews = state.activeArea && Number(state.activeArea.has_interviews) === 1;
   const interviewsBtn = $('[data-nav="interviews"]');
   interviewsBtn.classList.toggle('hidden', !hasInterviews);
-  $('.bottom-nav').classList.toggle('nav-3col', !hasInterviews);
+  $('.bottom-nav').classList.toggle('nav-4col', !hasInterviews);
   if (!hasInterviews && state.activeView === 'interviews') {
-    showView('tasks');
+    showView('dashboard');
   } else {
     requestAnimationFrame(() => moveIndicator($('.bottom-nav'), $('.nav-indicator'), $('.bottom-nav button.active')));
   }
@@ -467,6 +474,159 @@ async function loadTasks() {
   renderTasks();
   renderTaskStats();
 }
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+
+async function loadDashboard() {
+  const data = await api('/api/dashboard');
+  state.dashboard.tasks = data.tasks;
+  state.dashboard.interviews = data.interviews;
+  renderDashboard();
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function daysFromToday(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const ms = Date.UTC(y, m - 1, d) - Date.UTC(...todayStr().split('-').map(Number));
+  return Math.round(ms / 86400000);
+}
+
+function urgencyBadge(dateStr, status) {
+  if (!dateStr || status === 'done') return '';
+  const days = daysFromToday(dateStr);
+  if (days < 0) return `<span class="badge red">Vencida</span>`;
+  if (days === 0) return `<span class="badge yellow">Hoy</span>`;
+  if (days <= 7) return `<span class="badge yellow">En ${days}d</span>`;
+  return '';
+}
+
+function interviewUrgencyBadge(dateStr) {
+  if (!dateStr) return '';
+  const days = daysFromToday(dateStr);
+  if (days < 0) return `<span class="badge red">Vencida</span>`;
+  if (days === 0) return `<span class="badge yellow">Hoy</span>`;
+  if (days <= 7) return `<span class="badge yellow">En ${days}d</span>`;
+  return `<span class="badge">${formatDate(dateStr)}</span>`;
+}
+
+function renderDashboard() {
+  const today = todayStr();
+  const tasks = state.dashboard.tasks;
+  const interviews = state.dashboard.interviews;
+
+  const pending  = tasks.filter(t => t.status === 'pending').length;
+  const progress = tasks.filter(t => t.status === 'in_progress').length;
+  const overdue  = tasks.filter(t => t.due_date && t.due_date < today).length;
+
+  $('#dashStatPending').textContent   = pending;
+  $('#dashStatProgress').textContent  = progress;
+  $('#dashStatOverdue').textContent   = overdue;
+  $('#dashStatInterviews').textContent = interviews.length;
+  $('#dashStatOverdueTile').classList.toggle('no-overdue', overdue === 0);
+
+  if (state.dashTab === 'tasks') renderDashTasks();
+  else renderDashInterviews();
+}
+
+function setDashTab(tab) {
+  state.dashTab = tab;
+  $$('[data-dash-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.dashTab === tab));
+  moveIndicator($('#dashboardView .task-tabs'), $('#dashboardView .tabs-indicator'), $('#dashboardView .task-tabs button.active'));
+  $('#dashTaskList').classList.toggle('hidden', tab !== 'tasks');
+  $('#dashInterviewList').classList.toggle('hidden', tab !== 'interviews');
+  if (tab === 'tasks') renderDashTasks();
+  else renderDashInterviews();
+}
+
+function renderDashTasks() {
+  const today = todayStr();
+  const sorted = [...state.dashboard.tasks].sort((a, b) => {
+    const aOver = a.due_date && a.due_date < today;
+    const bOver = b.due_date && b.due_date < today;
+    if (aOver !== bOver) return aOver ? -1 : 1;
+    if (a.due_date && b.due_date) { const c = a.due_date.localeCompare(b.due_date); if (c) return c; }
+    if (a.due_date && !b.due_date) return -1;
+    if (!a.due_date && b.due_date) return 1;
+    const so = { in_progress: 1, pending: 2 };
+    return (so[a.status] || 3) - (so[b.status] || 3);
+  });
+
+  const statusLabel = s => ({ pending: 'Pendiente', in_progress: 'En curso' })[s] || s;
+  const statusColor = s => s === 'in_progress' ? 'yellow' : '';
+
+  $('#dashTaskList').innerHTML = sorted.length
+    ? sorted.map(t => `
+      <button class="item" data-dash-task-id="${t.id}">
+        <header>
+          <strong>${escapeHtml(t.title)}</strong>
+          <span class="badge ${statusColor(t.status)}">${statusLabel(t.status)}</span>
+        </header>
+        <div class="dash-urgency">
+          ${urgencyBadge(t.due_date, t.status)}
+          ${t.due_date ? `<span class="dash-date">Vence ${formatDate(t.due_date)}</span>` : '<span class="dash-date">Sin fecha</span>'}
+        </div>
+        <span class="dash-item-area">${escapeHtml(t.area_name)}${t.unit_name ? ' · ' + escapeHtml(t.unit_name) : ''}</span>
+      </button>`).join('')
+    : '<div class="item"><p>No tienes tareas activas asignadas.</p></div>';
+
+  $$('#dashTaskList [data-dash-task-id]').forEach(btn => {
+    btn.addEventListener('click', () => goToTask(btn.dataset.dashTaskId));
+  });
+}
+
+function renderDashInterviews() {
+  const sorted = [...state.dashboard.interviews].sort((a, b) =>
+    String(a.scheduled_date || '').localeCompare(String(b.scheduled_date || ''))
+  );
+
+  $('#dashInterviewList').innerHTML = sorted.length
+    ? sorted.map(i => `
+      <button class="item" data-dash-interview-id="${i.id}">
+        <header>
+          <strong>${escapeHtml(i.interviewee)}</strong>
+          ${interviewUrgencyBadge(i.scheduled_date)}
+        </header>
+        <p>${formatInterviewDate(i.scheduled_date, i.scheduled_time)}</p>
+        <span class="dash-item-area">${escapeHtml(i.area_name)}${i.unit_name ? ' · ' + escapeHtml(i.unit_name) : ''}</span>
+      </button>`).join('')
+    : '<div class="item"><p>No tienes entrevistas próximas asignadas.</p></div>';
+
+  $$('#dashInterviewList [data-dash-interview-id]').forEach(btn => {
+    btn.addEventListener('click', () => goToInterview(btn.dataset.dashInterviewId));
+  });
+}
+
+async function goToTask(taskId) {
+  const dash = state.dashboard.tasks.find(t => t.id === taskId);
+  if (!dash) return;
+  const area = state.areas.find(a => a.id === dash.work_area_id);
+  if (area) {
+    pickArea(area.id, area.name, area.unit_name || '');
+    await loadMembers();
+    await loadTasks();
+  }
+  showView('tasks');
+  const task = state.tasks.find(t => t.id === taskId);
+  if (task) openTaskDialog(task);
+}
+
+async function goToInterview(interviewId) {
+  const dash = state.dashboard.interviews.find(i => i.id === interviewId);
+  if (!dash) return;
+  const area = state.areas.find(a => a.id === dash.work_area_id);
+  if (area) {
+    pickArea(area.id, area.name, area.unit_name || '');
+    await loadInterviews();
+  }
+  showView('interviews');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function isPersonalArea() {
   return !!(state.activeArea && Number(state.activeArea.is_personal) === 1);

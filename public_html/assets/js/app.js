@@ -31,14 +31,16 @@ document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
   wireEvents();
-  await initSession();
   if ('serviceWorker' in navigator) {
     const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (hadController) window.location.reload();
     });
-    navigator.serviceWorker.register('/sw-gen.php').catch(e => console.warn('SW:', e));
+    navigator.serviceWorker.register('/sw-gen.php').then(reg => {
+      setInterval(() => reg.update(), 60 * 60 * 1000);
+    }).catch(e => console.warn('SW:', e));
   }
+  await initSession();
 }
 
 function wireEvents() {
@@ -1672,13 +1674,20 @@ function escapeHtml(value) {
 }
 
 function getSwVersion() {
+  if (!('serviceWorker' in navigator)) return Promise.resolve(null);
   return new Promise(resolve => {
-    const sw = navigator.serviceWorker?.controller;
-    if (!sw) return resolve(null);
-    const channel = new MessageChannel();
-    channel.port1.onmessage = e => resolve(e.data?.version ?? null);
-    sw.postMessage('getVersion', [channel.port2]);
-    setTimeout(() => resolve(null), 800);
+    const timer = setTimeout(() => resolve(null), 2000);
+    const query = sw => {
+      if (!sw) { clearTimeout(timer); return resolve(null); }
+      const ch = new MessageChannel();
+      ch.port1.onmessage = e => { clearTimeout(timer); resolve(e.data?.version ?? null); };
+      sw.postMessage('getVersion', [ch.port2]);
+    };
+    const ctrl = navigator.serviceWorker.controller;
+    if (ctrl) return query(ctrl);
+    navigator.serviceWorker.ready
+      .then(reg => query(reg.active))
+      .catch(() => { clearTimeout(timer); resolve(null); });
   });
 }
 

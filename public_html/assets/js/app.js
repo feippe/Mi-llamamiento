@@ -80,6 +80,7 @@ function wireEvents() {
   $('#taskForm').addEventListener('submit', e => e.preventDefault());
   $('#closeTaskBtn').addEventListener('click', closeTaskDialog);
   $('#taskDialog').addEventListener('cancel', e => { e.preventDefault(); closeTaskDialog(); });
+  $('#taskDialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeTaskDialog(); });
   $('#deleteTaskBtn').addEventListener('click', deleteTask);
   $('#taskDescription').addEventListener('input', () => {
     autoResizeTextarea($('#taskDescription'));
@@ -128,6 +129,7 @@ function wireEvents() {
   $('#addInterviewBtn').addEventListener('click', () => openInterviewDialog());
   $('#closeInterviewBtn').addEventListener('click', closeInterviewDialog);
   $('#interviewDialog').addEventListener('cancel', e => { e.preventDefault(); closeInterviewDialog(); });
+  $('#interviewDialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeInterviewDialog(); });
   $('#deleteInterviewBtn').addEventListener('click', deleteInterview);
   $('#saveNewInterviewBtn').addEventListener('click', closeInterviewDialog);
   $('#interviewForm').addEventListener('submit', e => e.preventDefault());
@@ -157,12 +159,14 @@ function wireEvents() {
   $('#addPairBtn').addEventListener('click', () => openPairDialog());
   $('#closePairDialogBtn').addEventListener('click', closePairDialog);
   $('#pairDialog').addEventListener('cancel', e => { e.preventDefault(); closePairDialog(); });
+  $('#pairDialog').addEventListener('click', e => { if (e.target === e.currentTarget) closePairDialog(); });
   $('#deletePairBtn').addEventListener('click', deletePair);
   $('#pairForm').addEventListener('submit', e => { e.preventDefault(); savePair(); });
   $('#prevQuarterBtn').addEventListener('click', () => navigateQuarter(-1));
   $('#nextQuarterBtn').addEventListener('click', () => navigateQuarter(1));
   $('#closeMinisteringInterviewBtn').addEventListener('click', closeMinisteringInterview);
   $('#ministeringInterviewDialog').addEventListener('cancel', e => { e.preventDefault(); closeMinisteringInterview(); });
+  $('#ministeringInterviewDialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeMinisteringInterview(); });
   $('#minInterviewerTag').addEventListener('click', e => { e.stopPropagation(); toggleMinInterviewerOptions(); });
   $('#minInterviewDateDisplay').addEventListener('click', () => startMinInterviewDateEdit('date'));
   $('#minInterviewTimeDisplay').addEventListener('click', () => startMinInterviewDateEdit('time'));

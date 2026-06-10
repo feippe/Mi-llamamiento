@@ -258,7 +258,7 @@ async function showView(view) {
     showSettingsScreen('settingsHome');
   }
   if (view === 'tasks') {
-    moveIndicator($('.task-tabs'), $('.tabs-indicator'), $('.task-tabs button.active'));
+    moveIndicator($('#tasksView .task-tabs'), $('#tasksView .tabs-indicator'), $('#tasksView .task-tabs button.active'));
   }
   if (view === 'interviews') {
     await loadInterviews();
@@ -278,7 +278,7 @@ function moveIndicator(container, indicator, active) {
 function syncIndicators() {
   moveIndicator($('.bottom-nav'), $('.nav-indicator'), $('.bottom-nav button.active'));
   if (state.activeView === 'tasks') {
-    moveIndicator($('.task-tabs'), $('.tabs-indicator'), $('.task-tabs button.active'));
+    moveIndicator($('#tasksView .task-tabs'), $('#tasksView .tabs-indicator'), $('#tasksView .task-tabs button.active'));
   }
   if (state.activeView === 'interviews') {
     moveIndicator($('#interviewSubTabs'), $('#interviewSubTabs .tabs-indicator'), $('[data-interview-tab].active'));
@@ -652,7 +652,7 @@ function renderTaskStats() {
 function setTaskFilter(filter) {
   state.taskFilter = filter;
   $$('[data-task-filter]').forEach(button => button.classList.toggle('active', button.dataset.taskFilter === filter));
-  moveIndicator($('.task-tabs'), $('.tabs-indicator'), $('.task-tabs button.active'));
+  moveIndicator($('#tasksView .task-tabs'), $('#tasksView .tabs-indicator'), $('#tasksView .task-tabs button.active'));
   renderTasks();
 }
 

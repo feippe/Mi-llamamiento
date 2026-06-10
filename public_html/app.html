@@ -154,6 +154,7 @@
           <div class="panel">
             <button id="logoutBtn" class="danger" type="button">Cerrar sesión</button>
           </div>
+          <p id="appVersion" class="app-version"></p>
         </section>
 
         <section id="interviewsView" class="view">
@@ -392,6 +393,16 @@
           <span>Ajustes</span>
         </button>
       </nav>
+
+      <div id="iosInstallBanner" class="ios-install-banner hidden" role="status">
+        <svg class="ios-share-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/>
+        </svg>
+        <p>Para instalar la app, toca <strong>Compartir</strong> en Safari y selecciona <strong>"Añadir a pantalla de inicio"</strong>.</p>
+        <button type="button" id="iosInstallBannerClose" class="ios-install-close" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
 
       <dialog id="taskDialog">
         <button type="button" class="dialog-close-btn" id="closeTaskBtn" aria-label="Cerrar">

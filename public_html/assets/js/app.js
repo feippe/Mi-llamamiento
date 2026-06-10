@@ -1545,11 +1545,10 @@ async function doInterviewAutosave() {
   const id = $('#interviewForm').elements.id.value;
   if (!id) return;
   const interviewee = $('#intervieweeName').value.trim();
-  const date = $('#interviewDate').value;
-  if (!interviewee || !date) return;
+  if (!interviewee) return;
   const data = {
     interviewee,
-    scheduled_date: date,
+    scheduled_date: $('#interviewDate').value || null,
     scheduled_time: $('#interviewTime').value || null,
     interviewer_id: $('#interviewerIdInput').value || null,
     notes: $('#interviewNotes').value,
@@ -1595,14 +1594,13 @@ async function closeInterviewDialog() {
   const id = form.elements.id.value;
   if (!id) {
     const interviewee = $('#intervieweeName').value.trim();
-    const date = $('#interviewDate').value;
-    if (interviewee && date) {
+    if (interviewee) {
       try {
         await api('/api/interviews', {
           method: 'POST',
           body: {
             interviewee,
-            scheduled_date: date,
+            scheduled_date: $('#interviewDate').value || null,
             scheduled_time: $('#interviewTime').value || null,
             interviewer_id: $('#interviewerIdInput').value || null,
             notes: $('#interviewNotes').value,

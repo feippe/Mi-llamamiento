@@ -37,10 +37,6 @@ class InterviewController extends Controller
             return;
         }
         $date = ($input['scheduled_date'] ?? '') ?: null;
-        if (!$date) {
-            Response::error('VALIDATION', 'La fecha es obligatoria.', 422);
-            return;
-        }
         $id = uuid();
         $stmt = $this->db->prepare(
             'INSERT INTO interviews
@@ -79,10 +75,6 @@ class InterviewController extends Controller
             return;
         }
         $date = ($input['scheduled_date'] ?? '') ?: null;
-        if (!$date) {
-            Response::error('VALIDATION', 'La fecha es obligatoria.', 422);
-            return;
-        }
         $completed = isset($input['completed']) ? (int) $input['completed'] : (int) $interview['completed'];
         $completedAt = $completed ? ($interview['completed_at'] ?: now_utc()) : null;
 

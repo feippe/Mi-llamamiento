@@ -30,6 +30,8 @@ let state = {
 const $ = selector => document.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
+function haptic() { navigator.vibrate?.(10); }
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
@@ -168,6 +170,14 @@ function wireEvents() {
   $('#minInterviewTime').addEventListener('blur', () => commitMinInterviewDateEdit('time'));
   $('#minInterviewNotes').addEventListener('input', () => { autoResizeTextarea($('#minInterviewNotes')); scheduleMinisteringAutosave(); });
   $('#minInterviewCompletedCheck').addEventListener('change', () => scheduleMinisteringAutosave(true));
+
+  const HAPTIC_SELECTORS = '[data-nav], [data-dash-tab], [data-task-filter], [data-interview-tab], [data-interview-filter], [data-min-filter]';
+  document.addEventListener('touchstart', e => {
+    if (e.target.closest(HAPTIC_SELECTORS)) haptic();
+  }, { passive: true });
+  document.addEventListener('change', e => {
+    if (e.target.matches('input[type="checkbox"]')) haptic();
+  });
 }
 
 async function initSession() {

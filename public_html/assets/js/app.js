@@ -42,6 +42,16 @@ function hideSplash() {
 function showLoader() { $('#contentLoader')?.classList.remove('hidden'); }
 function hideLoader() { $('#contentLoader')?.classList.add('hidden'); }
 
+let _modalCount = 0;
+function openModal(el) {
+  if (++_modalCount === 1) document.documentElement.classList.add('modal-open');
+  el.showModal();
+}
+function closeModal(el) {
+  el.close();
+  if (--_modalCount <= 0) { _modalCount = 0; document.documentElement.classList.remove('modal-open'); }
+}
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
@@ -771,7 +781,7 @@ function openTaskDialog(task = null) {
 
   $('#deleteTaskBtn').classList.toggle('hidden', !task);
   $('#saveNewTaskBtn').classList.toggle('hidden', !!task);
-  $('#taskDialog').showModal();
+  openModal($('#taskDialog'));
   if (!task) setTimeout(() => titleInput.focus(), 60);
 }
 
@@ -860,7 +870,7 @@ async function closeTaskDialog() {
   }
   closeStatusOptions();
   closeResponsibleOptions();
-  $('#taskDialog').close();
+  closeModal($('#taskDialog'));
 }
 
 function autoResizeTextarea(el) {
@@ -1038,7 +1048,7 @@ async function saveTask(event) {
   const id = data.id;
   delete data.id;
   await api(id ? `/api/tasks/${id}` : '/api/tasks', { method: id ? 'PUT' : 'POST', body: data });
-  $('#taskDialog').close();
+  closeModal($('#taskDialog'));
   await loadTasks();
 }
 
@@ -1053,7 +1063,7 @@ async function deleteTask() {
   });
   if (!confirmed) return;
   await api(`/api/tasks/${id}`, { method: 'DELETE' });
-  $('#taskDialog').close();
+  closeModal($('#taskDialog'));
   await loadTasks();
 }
 
@@ -1069,7 +1079,7 @@ function confirmDialog({ title = 'Confirmar', message = '', confirmLabel = 'Conf
       accept.removeEventListener('click', onAccept);
       cancel.removeEventListener('click', onCancel);
       dialog.removeEventListener('cancel', onDismiss);
-      dialog.close();
+      closeModal(dialog);
       resolve(result);
     }
     function onAccept() { settle(true); }
@@ -1078,7 +1088,7 @@ function confirmDialog({ title = 'Confirmar', message = '', confirmLabel = 'Conf
     accept.addEventListener('click', onAccept);
     cancel.addEventListener('click', onCancel);
     dialog.addEventListener('cancel', onDismiss);
-    dialog.showModal();
+    openModal(dialog);
   });
 }
 
@@ -1631,7 +1641,7 @@ function openInterviewDialog(interview = null) {
 
   $('#deleteInterviewBtn').classList.toggle('hidden', !interview);
   $('#saveNewInterviewBtn').classList.toggle('hidden', !!interview);
-  $('#interviewDialog').showModal();
+  openModal($('#interviewDialog'));
   if (!interview) setTimeout(() => $('#intervieweeName').focus(), 60);
 }
 
@@ -1659,7 +1669,7 @@ async function closeInterviewDialog() {
     }
   }
   closeInterviewerOptions();
-  $('#interviewDialog').close();
+  closeModal($('#interviewDialog'));
 }
 
 async function deleteInterview() {
@@ -1673,7 +1683,7 @@ async function deleteInterview() {
   });
   if (!confirmed) return;
   await api(`/api/interviews/${id}`, { method: 'DELETE' });
-  $('#interviewDialog').close();
+  closeModal($('#interviewDialog'));
   await loadInterviews();
 }
 
@@ -1816,10 +1826,10 @@ function openPairDialog(pairId = null) {
   f.elements.minister2.value = pair?.minister2 ?? '';
   f.elements.assigned_to.value = pair?.assigned_to ?? '';
   $('#deletePairBtn').classList.toggle('hidden', !pair);
-  $('#pairDialog').showModal();
+  openModal($('#pairDialog'));
 }
 
-function closePairDialog() { $('#pairDialog').close(); }
+function closePairDialog() { closeModal($('#pairDialog')); }
 
 async function savePair() {
   const f = $('#pairForm');
@@ -1884,13 +1894,13 @@ function openMinisteringInterview(pairId) {
   populateMinInterviewerOptions();
   pickMinInterviewer(pair.interviewer_id ?? '', pair.interviewer_name ?? '', false);
   autoResizeTextarea($('#minInterviewNotes'));
-  $('#ministeringInterviewDialog').showModal();
+  openModal($('#ministeringInterviewDialog'));
 }
 
 function closeMinisteringInterview() {
   clearTimeout(minInterviewTimer);
   doMinisteringAutosave();
-  $('#ministeringInterviewDialog').close();
+  closeModal($('#ministeringInterviewDialog'));
 }
 
 function scheduleMinisteringAutosave(immediate = false) {

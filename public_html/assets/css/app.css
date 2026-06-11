@@ -415,7 +415,8 @@ input:focus, textarea:focus, select:focus {
 .check { display: flex; align-items: center; gap: 8px; color: var(--text); }
 .check input { width: auto; }
 
-dialog {
+dialog,
+dialog:modal {
   position: fixed;
   inset: 0;
   margin: auto;
@@ -427,6 +428,8 @@ dialog {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
 }
+html.modal-open,
+html.modal-open body { overflow: hidden; touch-action: none; }
 dialog::backdrop { background: rgba(15, 31, 77, .45); backdrop-filter: blur(6px); }
 dialog[open] { animation: dialogIn .4s var(--ease-spring) both; }
 @keyframes dialogIn {

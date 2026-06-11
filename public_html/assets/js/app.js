@@ -465,6 +465,8 @@ const _VIEW_TITLES = { dashboard: 'Inicio', tasks: 'Tareas', interviews: 'Entrev
 async function showView(view) {
   state.activeView = view;
   $('#appTitle').textContent = _VIEW_TITLES[view] || 'Mi Llamamiento';
+  const contentEl = $('.content');
+  if (contentEl) contentEl.scrollTop = 0;
   $$('.view').forEach(section => section.classList.remove('active-view'));
   $(`#${view}View`).classList.add('active-view');
   $$('[data-nav]').forEach(button => button.classList.toggle('active', button.dataset.nav === view));

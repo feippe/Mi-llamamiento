@@ -138,7 +138,13 @@ input:focus, textarea:focus, select:focus {
 .link { background: transparent; color: var(--primary-light); text-decoration: underline; padding: 0; justify-self: center; }
 .small { min-height: 38px; }
 
-.app-shell { min-height: 100vh; padding-top: env(safe-area-inset-top, 0px); }
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+}
 .topbar {
   position: sticky;
   top: calc(env(safe-area-inset-top, 0px) + 12px);
@@ -159,7 +165,17 @@ input:focus, textarea:focus, select:focus {
 .brand strong { font-size: 16px; }
 .brand span { display: block; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
 
-.content { padding: 18px 14px calc(104px + env(safe-area-inset-bottom, 0px)); max-width: 1120px; margin: 0 auto; }
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  align-self: center;
+  width: 100%;
+  max-width: 1120px;
+  padding: 18px 14px calc(104px + env(safe-area-inset-bottom, 0px));
+}
 
 .bottom-nav {
   position: fixed;
@@ -515,6 +531,7 @@ dialog:modal {
 }
 html.modal-open,
 html.modal-open body { overflow: hidden; }
+html.modal-open .content { overflow: hidden; }
 dialog::backdrop { background: rgba(15, 31, 77, .45); backdrop-filter: blur(6px); }
 dialog[open] { animation: dialogIn .4s var(--ease-spring) both; }
 @keyframes dialogIn {

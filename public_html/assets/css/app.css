@@ -362,6 +362,49 @@ input:focus, textarea:focus, select:focus {
   .item.task-overdue::before { animation: none; opacity: 1; }
 }
 
+/* ── Swipe-to-delete ─────────────────────────────────────────────────────── */
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  animation: riseIn .45s var(--ease) both;
+}
+.swipe-row > .item {
+  animation: none;
+  will-change: transform;
+}
+.swipe-row > .item:hover { transform: none; box-shadow: var(--shadow-sm); }
+.swipe-row > .item.interview-today { animation: todayPulse 2.2s ease-in-out infinite; }
+.swipe-row > .item.task-overdue { animation: overduePulse 2.2s ease-in-out infinite; }
+.swipe-row > .item.task-overdue::before { animation: overdueBar 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .swipe-row { animation: none; }
+  .swipe-row > .item.interview-today { animation: none; }
+  .swipe-row > .item.task-overdue { animation: none; box-shadow: 0 4px 16px -4px rgba(220, 38, 38, .4); }
+  .swipe-row > .item.task-overdue::before { animation: none; opacity: 1; }
+}
+.swipe-delete-action {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 76px;
+  background: #ef4444;
+  border: none;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.swipe-delete-action svg { width: 20px; height: 20px; flex-shrink: 0; }
+/* ─────────────────────────────────────────────────────────────────────────── */
+
 .item header, .admin-row header { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
 .item strong, .admin-row strong { overflow-wrap: anywhere; }
 .list > *:nth-child(1), .admin-list > *:nth-child(1) { animation-delay: .02s; }

@@ -74,6 +74,87 @@ function soundDelete() {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Swipe-to-delete ──────────────────────────────────────────────────────────
+const _SWIPE_W = 76;   // delete button width (px)
+const _SWIPE_AT = 52;  // drag threshold to snap open (px)
+let _openSwipeRow = null;
+let _swipeG = null;    // active gesture state
+
+function _snapSwipeRow(row, open) {
+  const card = row.querySelector('.swipe-card');
+  if (!card) return;
+  card.style.transition = 'transform 0.22s cubic-bezier(.25,.46,.45,.94)';
+  card.style.transform = open ? `translateX(-${_SWIPE_W}px)` : 'translateX(0)';
+  row.classList.toggle('is-open', open);
+  if (open) _openSwipeRow = row;
+  else if (_openSwipeRow === row) _openSwipeRow = null;
+}
+
+function _closeOpenSwipeRow() {
+  if (_openSwipeRow) _snapSwipeRow(_openSwipeRow, false);
+}
+
+function _swipeRowDelete(row, apiFn) {
+  if (_openSwipeRow === row) _openSwipeRow = null;
+  soundDelete(); haptic();
+  const card = row.querySelector('.swipe-card');
+  const h = row.offsetHeight;
+  row.style.maxHeight = h + 'px';
+  row.style.overflow = 'hidden';
+  if (card) {
+    card.style.transition = 'transform 0.18s ease-in';
+    card.style.transform = 'translateX(-120%)';
+  }
+  setTimeout(() => {
+    row.style.transition = 'max-height 0.28s ease, opacity 0.2s ease';
+    row.style.maxHeight = '0';
+    row.style.opacity = '0';
+  }, 140);
+  setTimeout(() => { row.remove(); apiFn(); }, 400);
+}
+
+function _attachSwipe(container) {
+  container.addEventListener('touchstart', e => {
+    const row = e.target.closest('.swipe-row');
+    if (!row) { _closeOpenSwipeRow(); return; }
+    if (e.target.closest('.swipe-delete-action')) return;
+    if (_openSwipeRow && _openSwipeRow !== row) _snapSwipeRow(_openSwipeRow, false);
+    const t = e.touches[0];
+    _swipeG = { row, card: row.querySelector('.swipe-card'), startX: t.clientX, startY: t.clientY, dir: null, moved: false, wasOpen: row.classList.contains('is-open') };
+    if (_swipeG.card) _swipeG.card.style.transition = 'none';
+  }, { passive: true });
+
+  container.addEventListener('touchmove', e => {
+    if (!_swipeG?.card) return;
+    const t = e.touches[0];
+    const dx = t.clientX - _swipeG.startX;
+    const dy = t.clientY - _swipeG.startY;
+    if (!_swipeG.dir) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      _swipeG.dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+    }
+    if (_swipeG.dir === 'v') { _swipeG = null; return; }
+    e.preventDefault();
+    _swipeG.moved = true;
+    const base = _swipeG.wasOpen ? -_SWIPE_W : 0;
+    const clamped = Math.max(-_SWIPE_W, Math.min(0, base + dx));
+    _swipeG.card.style.transform = `translateX(${clamped}px)`;
+  }, { passive: false });
+
+  const onEnd = () => {
+    if (!_swipeG) return;
+    const { row, card, moved, wasOpen } = _swipeG;
+    _swipeG = null;
+    if (!moved || !card) return;
+    const m = card.style.transform.match(/translateX\((-?[\d.]+)px\)/);
+    const x = m ? parseFloat(m[1]) : 0;
+    _snapSwipeRow(row, wasOpen ? x < -(_SWIPE_W / 3) : x < -_SWIPE_AT);
+  };
+  container.addEventListener('touchend', onEnd, { passive: true });
+  container.addEventListener('touchcancel', onEnd, { passive: true });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function hideSplash() {
   const s = $('#splashScreen');
   if (!s) return;
@@ -86,6 +167,7 @@ function hideLoader() { $('#contentLoader')?.classList.add('hidden'); }
 
 let _modalCount = 0;
 function openModal(el) {
+  _closeOpenSwipeRow();
   if (++_modalCount === 1) document.documentElement.classList.add('modal-open');
   soundOpen();
   el.showModal();
@@ -159,6 +241,7 @@ function wireEvents() {
   $$('#statusOptions [data-status]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); pickStatus(btn.dataset.status, true); }));
   $('#responsibleTag').addEventListener('click', e => { e.stopPropagation(); toggleResponsibleOptions(); });
   document.addEventListener('click', e => {
+    if (!e.target.closest('.swipe-row')) _closeOpenSwipeRow();
     if (!$('#statusPicker').contains(e.target)) closeStatusOptions();
     if (!$('#responsiblePicker').contains(e.target)) closeResponsibleOptions();
     if (!$('#areaPicker').contains(e.target)) closeAreaOptions();
@@ -252,6 +335,9 @@ function wireEvents() {
   document.addEventListener('change', e => {
     if (e.target.matches('input[type="checkbox"]')) { haptic(); soundToggle(); }
   });
+
+  _attachSwipe($('#taskList'));
+  _attachSwipe($('#interviewList'));
 }
 
 async function initSession() {
@@ -766,19 +852,37 @@ function setTaskFilter(filter) {
   renderTasks();
 }
 
+const _TRASH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
 function renderTasks() {
   const tasks = scopedTasks().filter(task => state.taskFilter === 'done'
     ? task.status === 'done'
     : ['pending', 'in_progress'].includes(task.status));
-  $('#taskList').innerHTML = tasks.map(task => `
-    <button class="item${isTaskOverdue(task) ? ' task-overdue' : ''}" data-task-id="${task.id}">
-      <header><strong>${escapeHtml(task.title)}</strong><span class="badge ${task.status === 'done' ? 'green' : task.status === 'in_progress' ? 'yellow' : ''}">${statusLabel(task.status)}</span></header>
-      <p>Inicio: ${formatDate(task.start_date)} · Vence: ${formatDate(task.due_date)}</p>
-      <div class="item-person">${avatarHtml(task.assigned_to_name)}<span>${escapeHtml(task.assigned_to_name || 'Sin responsable')}</span></div>
-    </button>
-  `).join('') || `<div class="item"><p>No hay tareas ${state.taskFilter === 'done' ? 'finalizadas' : 'pendientes'}.</p></div>`;
-  $$('#taskList [data-task-id]').forEach(button => button.addEventListener('click', () => {
-    openTaskDialog(state.tasks.find(task => task.id === button.dataset.taskId));
+  const container = $('#taskList');
+  if (!tasks.length) {
+    container.innerHTML = `<div class="item"><p>No hay tareas ${state.taskFilter === 'done' ? 'finalizadas' : 'pendientes'}.</p></div>`;
+    return;
+  }
+  container.innerHTML = tasks.map(task => `
+    <div class="swipe-row">
+      <button class="item${isTaskOverdue(task) ? ' task-overdue' : ''} swipe-card" data-task-id="${task.id}">
+        <header><strong>${escapeHtml(task.title)}</strong><span class="badge ${task.status === 'done' ? 'green' : task.status === 'in_progress' ? 'yellow' : ''}">${statusLabel(task.status)}</span></header>
+        <p>Inicio: ${formatDate(task.start_date)} · Vence: ${formatDate(task.due_date)}</p>
+        <div class="item-person">${avatarHtml(task.assigned_to_name)}<span>${escapeHtml(task.assigned_to_name || 'Sin responsable')}</span></div>
+      </button>
+      <button class="swipe-delete-action" data-swipe-task="${task.id}" aria-label="Borrar tarea">${_TRASH_ICON}Borrar</button>
+    </div>
+  `).join('');
+  $$('#taskList [data-task-id]').forEach(btn => btn.addEventListener('click', () => {
+    const row = btn.closest('.swipe-row');
+    if (row?.classList.contains('is-open')) { _snapSwipeRow(row, false); return; }
+    openTaskDialog(state.tasks.find(t => t.id === btn.dataset.taskId));
+  }));
+  $$('#taskList [data-swipe-task]').forEach(btn => btn.addEventListener('click', () => {
+    _swipeRowDelete(btn.closest('.swipe-row'), async () => {
+      await api(`/api/tasks/${btn.dataset.swipeTask}`, { method: 'DELETE' });
+      await loadTasks();
+    });
   }));
 }
 
@@ -1587,17 +1691,28 @@ function renderInterviews() {
       : `<span style="color:var(--muted);font-size:13px">Sin entrevistador</span>`;
     const isToday = !completed && interview.scheduled_date && String(interview.scheduled_date).split(' ')[0] === today;
     return `
-      <button class="item${isToday ? ' interview-today' : ''}" data-interview-id="${interview.id}">
-        <header><strong>${escapeHtml(interview.interviewee)}</strong>${badge}</header>
-        <p>${formatInterviewDate(interview.scheduled_date, interview.scheduled_time)}</p>
-        <div class="item-person">${interviewerHtml}</div>
-      </button>`;
+      <div class="swipe-row">
+        <button class="item${isToday ? ' interview-today' : ''} swipe-card" data-interview-id="${interview.id}">
+          <header><strong>${escapeHtml(interview.interviewee)}</strong>${badge}</header>
+          <p>${formatInterviewDate(interview.scheduled_date, interview.scheduled_time)}</p>
+          <div class="item-person">${interviewerHtml}</div>
+        </button>
+        <button class="swipe-delete-action" data-swipe-interview="${interview.id}" aria-label="Borrar entrevista">${_TRASH_ICON}Borrar</button>
+      </div>`;
   }).join('');
   $$('#interviewList [data-interview-id]').forEach(btn => {
     btn.addEventListener('click', () => {
+      const row = btn.closest('.swipe-row');
+      if (row?.classList.contains('is-open')) { _snapSwipeRow(row, false); return; }
       openInterviewDialog(state.interviews.find(i => i.id === btn.dataset.interviewId));
     });
   });
+  $$('#interviewList [data-swipe-interview]').forEach(btn => btn.addEventListener('click', () => {
+    _swipeRowDelete(btn.closest('.swipe-row'), async () => {
+      await api(`/api/interviews/${btn.dataset.swipeInterview}`, { method: 'DELETE' });
+      await loadInterviews();
+    });
+  }));
 }
 
 function formatInterviewDate(date, time) {

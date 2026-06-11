@@ -32,6 +32,48 @@ const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selec
 
 function haptic() { navigator.vibrate?.(10); }
 
+// ── Web Audio micro-sounds ────────────────────────────────────────────────────
+let _ac = null;
+function _audioCtx() {
+  if (!_ac || _ac.state === 'closed') _ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ac.state === 'suspended') _ac.resume();
+  return _ac;
+}
+
+function _tone(freq, duration, { type = 'sine', gainStart = 0.18, gainEnd = 0, freqEnd = null, delay = 0 } = {}) {
+  try {
+    const ac = _audioCtx();
+    const t0 = ac.currentTime + delay;
+    const t1 = t0 + duration;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t1);
+    gain.gain.setValueAtTime(gainStart, t0);
+    gain.gain.linearRampToValueAtTime(gainEnd, t1);
+    osc.start(t0);
+    osc.stop(t1);
+  } catch (_) {}
+}
+
+function soundTap()    { _tone(880, 0.05, { gainStart: 0.10, freqEnd: 700 }); }
+function soundNav()    { _tone(660, 0.07, { gainStart: 0.12, freqEnd: 520 }); }
+function soundToggle() { _tone(580, 0.09, { type: 'triangle', gainStart: 0.14, freqEnd: 440 }); }
+function soundOpen()   { _tone(320, 0.12, { gainStart: 0.13, freqEnd: 680 }); }
+function soundClose()  { _tone(560, 0.10, { gainStart: 0.12, freqEnd: 300 }); }
+function soundSave() {
+  _tone(523, 0.10, { gainStart: 0.15, gainEnd: 0.02 });
+  _tone(784, 0.14, { gainStart: 0.15, gainEnd: 0, delay: 0.09 });
+}
+function soundDelete() {
+  _tone(440, 0.07, { type: 'triangle', gainStart: 0.14 });
+  _tone(330, 0.10, { type: 'triangle', gainStart: 0.12, gainEnd: 0, delay: 0.07 });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function hideSplash() {
   const s = $('#splashScreen');
   if (!s) return;
@@ -45,10 +87,12 @@ function hideLoader() { $('#contentLoader')?.classList.add('hidden'); }
 let _modalCount = 0;
 function openModal(el) {
   if (++_modalCount === 1) document.documentElement.classList.add('modal-open');
+  soundOpen();
   el.showModal();
 }
 function closeModal(el) {
   el.close();
+  soundClose();
   if (--_modalCount <= 0) { _modalCount = 0; document.documentElement.classList.remove('modal-open'); }
 }
 
@@ -199,12 +243,14 @@ function wireEvents() {
   $('#minInterviewNotes').addEventListener('input', () => { autoResizeTextarea($('#minInterviewNotes')); scheduleMinisteringAutosave(); });
   $('#minInterviewCompletedCheck').addEventListener('change', () => scheduleMinisteringAutosave(true));
 
-  const HAPTIC_SELECTORS = '[data-nav], [data-dash-tab], [data-task-filter], [data-interview-tab], [data-interview-filter], [data-min-filter]';
+  const NAV_SELECTOR = '[data-nav]';
+  const TAP_SELECTORS = '[data-dash-tab], [data-task-filter], [data-interview-tab], [data-interview-filter], [data-min-filter]';
   document.addEventListener('touchstart', e => {
-    if (e.target.closest(HAPTIC_SELECTORS)) haptic();
+    if (e.target.closest(NAV_SELECTOR)) { haptic(); soundNav(); }
+    else if (e.target.closest(TAP_SELECTORS)) { haptic(); soundTap(); }
   }, { passive: true });
   document.addEventListener('change', e => {
-    if (e.target.matches('input[type="checkbox"]')) haptic();
+    if (e.target.matches('input[type="checkbox"]')) { haptic(); soundToggle(); }
   });
 }
 
@@ -864,6 +910,7 @@ async function closeTaskDialog() {
           work_area_id: state.activeAreaId,
         };
         await api('/api/tasks', { method: 'POST', body: data });
+        soundSave();
         await loadTasks();
       } catch (_) {}
     }
@@ -1063,6 +1110,7 @@ async function deleteTask() {
   });
   if (!confirmed) return;
   await api(`/api/tasks/${id}`, { method: 'DELETE' });
+  soundDelete();
   closeModal($('#taskDialog'));
   await loadTasks();
 }
@@ -1664,6 +1712,7 @@ async function closeInterviewDialog() {
             work_area_id: state.activeAreaId,
           },
         });
+        soundSave();
         await loadInterviews();
       } catch (_) {}
     }
@@ -1683,6 +1732,7 @@ async function deleteInterview() {
   });
   if (!confirmed) return;
   await api(`/api/interviews/${id}`, { method: 'DELETE' });
+  soundDelete();
   closeModal($('#interviewDialog'));
   await loadInterviews();
 }
@@ -1844,6 +1894,7 @@ async function savePair() {
     if (!id) {
       payload.work_area_id = state.activeAreaId;
       await api('/api/ministering/pairs', { method: 'POST', body: payload });
+      soundSave();
     } else {
       await api(`/api/ministering/pairs/${id}`, { method: 'PUT', body: payload });
     }
@@ -1867,6 +1918,7 @@ async function deletePair() {
   if (!ok) return;
   closePairDialog();
   await api(`/api/ministering/pairs/${id}`, { method: 'DELETE' });
+  soundDelete();
   await loadPairs();
 }
 

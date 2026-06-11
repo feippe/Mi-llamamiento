@@ -2,6 +2,8 @@ let csrf = '';
 let currentUser = null;
 let canManageSettings = false;
 let adminCatalog = null;
+let _profileLoadedAt = 0;
+const _PROFILE_TTL = 5 * 60 * 1000;
 
 let state = {
   units: [],
@@ -474,13 +476,20 @@ async function showView(view) {
     moveIndicator($('#dashboardView .task-tabs'), $('#dashboardView .tabs-indicator'), $('#dashboardView .task-tabs button.active'));
   }
   if (view === 'profile') {
-    await loadProfile();
-    await loadUserCallings();
+    const now = Date.now();
+    if (now - _profileLoadedAt > _PROFILE_TTL) {
+      await loadProfile();
+      await loadUserCallings();
+      _profileLoadedAt = now;
+    }
   }
   if (view === 'settings') {
     showSettingsScreen('settingsHome');
   }
   if (view === 'tasks') {
+    showLoader();
+    await loadTasks();
+    hideLoader();
     moveIndicator($('#tasksView .task-tabs'), $('#tasksView .tabs-indicator'), $('#tasksView .task-tabs button.active'));
   }
   if (view === 'interviews') {
@@ -528,6 +537,7 @@ async function saveProfile(event) {
   try {
     const result = await api('/api/profile', { method: 'PUT', body: formData(event.currentTarget) });
     currentUser = result.user;
+    _profileLoadedAt = Date.now();
     $('#profileForm').elements.current_password.value = '';
     $('#profileForm').elements.new_password.value = '';
     $('#profileStatus').textContent = 'Perfil actualizado.';
@@ -587,6 +597,7 @@ async function requestCalling(event) {
       : 'Solicitud creada. Queda pendiente de aprobación.';
     await loadAreas();
     await loadUserCallings();
+    _profileLoadedAt = 0;
     hideCallingForm(false);
     if (state.activeView === 'settings') await loadRequests();
   } catch (error) {
@@ -614,6 +625,7 @@ async function removeCalling(id) {
   await loadAreas();
   await loadUserCallings();
   await loadProfile();
+  _profileLoadedAt = Date.now();
 }
 
 async function loadAreas() {

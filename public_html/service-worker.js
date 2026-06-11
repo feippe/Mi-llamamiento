@@ -27,19 +27,16 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('push', event => {
-  console.log('[SW] push event received', event);
   let data = { title: 'Mi Llamamiento', body: '' };
   if (event.data) {
-    try { data = event.data.json(); } catch (err) { console.log('[SW] push data parse failed', err); }
+    try { data = event.data.json(); } catch (_) {}
   }
-  console.log('[SW] showing notification', data);
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/assets/icons/icon-192.png',
       badge: '/assets/icons/icon-192.png',
-    }).then(() => console.log('[SW] showNotification resolved'))
-      .catch(err => console.log('[SW] showNotification failed', err))
+    })
   );
 });
 

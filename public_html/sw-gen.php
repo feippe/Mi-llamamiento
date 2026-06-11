@@ -1,5 +1,6 @@
 <?php
 $files = [
+    __FILE__,
     __DIR__ . '/app.html',
     __DIR__ . '/assets/css/app.css',
     __DIR__ . '/assets/js/app.js',
@@ -40,6 +41,32 @@ self.addEventListener('message', event => {
   if (event.data === 'getVersion') {
     event.source.postMessage({ type: 'version', version: CACHE });
   }
+});
+
+self.addEventListener('push', event => {
+  let data = { title: 'Mi Llamamiento', body: '' };
+  if (event.data) {
+    try { data = event.data.json(); } catch (_) {}
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/assets/icons/icon-192.png',
+      badge: '/assets/icons/icon-192.png',
+    })
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow('/');
+    })
+  );
 });
 
 self.addEventListener('fetch', event => {

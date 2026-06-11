@@ -76,8 +76,8 @@ class PushService
                 . $ciphertext;
 
             $this->post($sub['endpoint'], $record, $this->vapidHeader($sub['endpoint']));
-        } catch (\Throwable $e) {
-            error_log('[PushService] deliver failed: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+        } catch (\Throwable) {
+            // Never let a push failure break the main request
         }
     }
 
@@ -202,11 +202,9 @@ class PushService
                 'Content-Length: ' . strlen($body),
             ],
         ]);
-        $response = curl_exec($ch);
-        $status   = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr  = curl_error($ch);
+        curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        error_log('[PushService] POST ' . substr($url, 0, 60) . ' → HTTP ' . $status . ($curlErr ? " cURL error: $curlErr" : '') . ($response ? " body: $response" : ''));
         // 410 Gone = subscription expired; clean it up
         if ($status === 410) {
             $this->db->prepare('DELETE FROM push_subscriptions WHERE endpoint = ?')->execute([$url]);

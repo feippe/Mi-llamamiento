@@ -1137,6 +1137,19 @@ input[type="date"], input[type="time"] { min-width: 0; }
 .dash-stats .stat-tile:nth-child(3) { animation-delay: .13s; }
 .dash-stats .stat-tile:nth-child(4) { animation-delay: .18s; }
 #dashboardView .task-tabs button { font-size: 12px; }
+.stat-task-today { background: linear-gradient(135deg, #fef3c7, #fffbeb); }
+.stat-task-today .stat-value { color: #92400e; }
+.stat-task-today.has-due-today {
+  background: linear-gradient(135deg, #fde68a, #fef3c7);
+  animation: viewIn .4s var(--ease) both, dueTodayTilePulse 2.4s ease-in-out infinite;
+}
+.stat-task-today.has-due-today .stat-value { color: #78350f; }
+@keyframes dueTodayTilePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, .0); }
+  50% { box-shadow: 0 0 18px 1px rgba(245, 158, 11, .35); }
+}
+.stat-task-week { background: linear-gradient(135deg, var(--primary-soft), #f0f5ff); }
+.stat-task-week .stat-value { color: var(--primary); }
 .stat-interviews { background: linear-gradient(135deg, #ede9fe, #f5f3ff); }
 .stat-interviews .stat-value { color: #5b21b6; }
 .stat-today.has-today {

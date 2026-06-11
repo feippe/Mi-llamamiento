@@ -741,12 +741,18 @@ function interviewUrgencyBadge(dateStr) {
 }
 
 function renderDashboard() {
-  const today = todayStr();
   const tasks = state.dashboard.tasks;
   const interviews = state.dashboard.interviews;
 
-  const pending  = tasks.filter(t => t.status === 'pending').length;
-  const progress = tasks.filter(t => t.status === 'in_progress').length;
+  const taskDueTodayCount = tasks.filter(t => {
+    if (t.status === 'done' || !t.due_date) return false;
+    return daysFromToday(String(t.due_date).split(' ')[0]) === 0;
+  }).length;
+  const taskDueWeekCount = tasks.filter(t => {
+    if (t.status === 'done' || !t.due_date) return false;
+    const days = daysFromToday(String(t.due_date).split(' ')[0]);
+    return days !== null && days >= 0 && days <= 7;
+  }).length;
   const todayCount = interviews.filter(i => {
     const d = i.scheduled_date ? String(i.scheduled_date).split(' ')[0] : '';
     return d && daysFromToday(d) === 0;
@@ -758,10 +764,11 @@ function renderDashboard() {
     return days >= 0 && days <= 7;
   }).length;
 
-  $('#dashStatPending').textContent  = pending;
-  $('#dashStatProgress').textContent = progress;
+  $('#dashStatDueToday').textContent = taskDueTodayCount;
+  $('#dashStatDueWeek').textContent  = taskDueWeekCount;
   $('#dashStatToday').textContent    = todayCount;
   $('#dashStatWeek').textContent     = weekCount;
+  $('#dashStatDueTodayTile').classList.toggle('has-due-today', taskDueTodayCount > 0);
   $('#dashStatTodayTile').classList.toggle('has-today', todayCount > 0);
 
   if (state.dashTab === 'tasks') renderDashTasks();

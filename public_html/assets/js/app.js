@@ -372,6 +372,8 @@ function wireEvents() {
 
   _attachSwipe($('#taskList'));
   _attachSwipe($('#interviewList'));
+  _attachSwipe($('#dashTaskList'));
+  _attachSwipe($('#dashInterviewList'));
 }
 
 async function initSession() {
@@ -782,53 +784,125 @@ function isTaskOverdue(t) {
 }
 
 function renderDashTasks() {
-  const sorted = [...state.dashboard.tasks].sort(compareTasks);
-
-  const statusLabel = s => ({ pending: 'Pendiente', in_progress: 'En curso' })[s] || s;
-  const statusColor = s => s === 'in_progress' ? 'yellow' : '';
-
-  $('#dashTaskList').innerHTML = sorted.length
-    ? sorted.map(t => `
-      <button class="item${isTaskOverdue(t) ? ' task-overdue' : ''}" data-dash-task-id="${t.id}">
+  const sorted = [...state.dashboard.tasks].filter(t => t.status !== 'done').sort(compareTasks);
+  const container = $('#dashTaskList');
+  if (!sorted.length) {
+    container.innerHTML = '<div class="item"><p>No tienes tareas activas asignadas.</p></div>';
+    return;
+  }
+  container.innerHTML = sorted.map(t => {
+    const next = _NEXT_STATUS[t.status];
+    const action = _STATUS_ACTION[next];
+    return `
+    <div class="swipe-row">
+      <button class="swipe-left-action" data-dash-swipe-status="${t.id}"
+        style="background:${action.bg}" data-action-bg="${action.bg}" aria-label="${action.label}">
+        ${action.icon}${action.label}
+      </button>
+      <button class="item${isTaskOverdue(t) ? ' task-overdue' : ''} swipe-card" data-dash-task-id="${t.id}">
         <header>
           <strong>${escapeHtml(t.title)}</strong>
-          <span class="badge ${statusColor(t.status)}">${statusLabel(t.status)}</span>
+          <span class="badge ${t.status === 'in_progress' ? 'yellow' : ''}">${statusLabel(t.status)}</span>
         </header>
         <div class="dash-urgency">
           ${urgencyBadge(t.due_date, t.status)}
           ${t.due_date ? `<span class="dash-date">Vence ${formatDate(t.due_date)}</span>` : '<span class="dash-date">Sin fecha</span>'}
         </div>
         <span class="dash-item-area">${escapeHtml(t.area_name)}${t.unit_name ? ' · ' + escapeHtml(t.unit_name) : ''}</span>
-      </button>`).join('')
-    : '<div class="item"><p>No tienes tareas activas asignadas.</p></div>';
-
+      </button>
+    </div>`;
+  }).join('');
   $$('#dashTaskList [data-dash-task-id]').forEach(btn => {
-    btn.addEventListener('click', () => goToTask(btn.dataset.dashTaskId));
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.swipe-row');
+      if (row?.classList.contains('is-open')) { _snapSwipeRow(row, false); return; }
+      goToTask(btn.dataset.dashTaskId);
+    });
   });
+  $$('#dashTaskList [data-dash-swipe-status]').forEach(btn => btn.addEventListener('click', async () => {
+    const id = btn.dataset.dashSwipeStatus;
+    const row = btn.closest('.swipe-row');
+    const task = state.dashboard.tasks.find(t => t.id === id);
+    if (!task) return;
+    soundSave(); haptic();
+    const nextStatus = _NEXT_STATUS[task.status];
+    _snapSwipeRow(row, false);
+    task.status = nextStatus;
+    renderDashboard();
+    try {
+      await api(`/api/tasks/${id}`, { method: 'PUT', body: {
+        title: task.title,
+        description: task.description || '',
+        status: nextStatus,
+        assigned_to: task.assigned_to || '',
+        start_date: String(task.start_date || '').split(' ')[0],
+        due_date: String(task.due_date || '').split(' ')[0],
+        work_area_id: task.work_area_id,
+      }});
+    } catch (_) { await loadDashboard(); }
+  }));
 }
 
 function renderDashInterviews() {
   const today = todayStr();
   const sorted = [...state.dashboard.interviews].sort(compareInterviews);
-
-  $('#dashInterviewList').innerHTML = sorted.length
-    ? sorted.map(i => {
-      const isToday = i.scheduled_date && String(i.scheduled_date).split(' ')[0] === today;
-      return `
-      <button class="item${isToday ? ' interview-today' : ''}" data-dash-interview-id="${i.id}">
+  const container = $('#dashInterviewList');
+  if (!sorted.length) {
+    container.innerHTML = '<div class="item"><p>No tienes entrevistas próximas asignadas.</p></div>';
+    return;
+  }
+  container.innerHTML = sorted.map(i => {
+    const isToday = i.scheduled_date && String(i.scheduled_date).split(' ')[0] === today;
+    const completed = Number(i.completed);
+    const doneAction = completed
+      ? { label: 'Pendiente', bg: '#6b7280', icon: _RESET_ICON }
+      : { label: 'Realizada', bg: '#10b981', icon: _CHECK_ICON };
+    return `
+    <div class="swipe-row">
+      <button class="swipe-left-action" data-dash-swipe-done="${i.id}"
+        style="background:${doneAction.bg}" data-action-bg="${doneAction.bg}" aria-label="${doneAction.label}">
+        ${doneAction.icon}${doneAction.label}
+      </button>
+      <button class="item${isToday ? ' interview-today' : ''} swipe-card" data-dash-interview-id="${i.id}">
         <header>
           <strong>${escapeHtml(i.interviewee)}</strong>
           ${interviewUrgencyBadge(i.scheduled_date)}
         </header>
         <p>${formatInterviewDate(i.scheduled_date, i.scheduled_time)}</p>
         <span class="dash-item-area">${escapeHtml(i.area_name)}${i.unit_name ? ' · ' + escapeHtml(i.unit_name) : ''}</span>
-      </button>`;
-    }).join('')
-    : '<div class="item"><p>No tienes entrevistas próximas asignadas.</p></div>';
-
+      </button>
+    </div>`;
+  }).join('');
   $$('#dashInterviewList [data-dash-interview-id]').forEach(btn => {
-    btn.addEventListener('click', () => goToInterview(btn.dataset.dashInterviewId));
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.swipe-row');
+      if (row?.classList.contains('is-open')) { _snapSwipeRow(row, false); return; }
+      goToInterview(btn.dataset.dashInterviewId);
+    });
   });
+  $$('#dashInterviewList [data-dash-swipe-done]').forEach(btn => btn.addEventListener('click', async () => {
+    const id = btn.dataset.dashSwipeDone;
+    const row = btn.closest('.swipe-row');
+    const interview = state.dashboard.interviews.find(i => i.id === id);
+    if (!interview) return;
+    soundSave(); haptic();
+    const nowDone = !Number(interview.completed);
+    _snapSwipeRow(row, false);
+    interview.completed = nowDone ? 1 : 0;
+    interview.completed_at = nowDone ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null;
+    renderDashboard();
+    try {
+      await api(`/api/interviews/${id}`, { method: 'PUT', body: {
+        interviewee:    interview.interviewee,
+        scheduled_date: String(interview.scheduled_date || '').split(' ')[0] || null,
+        scheduled_time: interview.scheduled_time || null,
+        interviewer_id: interview.interviewer_id || null,
+        notes:          interview.notes || '',
+        completed:      nowDone ? 1 : 0,
+        work_area_id:   interview.work_area_id,
+      }});
+    } catch (_) { await loadDashboard(); }
+  }));
 }
 
 async function goToTask(taskId) {

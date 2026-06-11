@@ -1100,13 +1100,28 @@ input[type="date"], input[type="time"] { min-width: 0; }
 /* Dashboard */
 .dash-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.dash-stats .stat-tile {
+  padding: 10px 8px;
+  gap: 2px;
+}
+.dash-stats .stat-value { font-size: 20px; }
+.dash-stats .stat-label { font-size: 9px; letter-spacing: .03em; }
+.stat-cat {
+  display: block;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  opacity: 0.55;
 }
 .dash-stats .stat-tile:nth-child(1) { animation-delay: .03s; }
 .dash-stats .stat-tile:nth-child(2) { animation-delay: .08s; }
 .dash-stats .stat-tile:nth-child(3) { animation-delay: .13s; }
 .dash-stats .stat-tile:nth-child(4) { animation-delay: .18s; }
+#dashboardView .task-tabs button { font-size: 12px; }
 .stat-interviews { background: linear-gradient(135deg, #ede9fe, #f5f3ff); }
 .stat-interviews .stat-value { color: #5b21b6; }
 .stat-today.has-today {

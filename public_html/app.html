@@ -86,28 +86,32 @@
         <section id="dashboardView" class="view active-view">
           <div class="dash-stats">
             <div class="stat-tile stat-pending">
+              <span class="stat-cat">Tareas</span>
               <span class="stat-value" id="dashStatPending">0</span>
               <span class="stat-label">Pendientes</span>
             </div>
             <div class="stat-tile stat-progress">
+              <span class="stat-cat">Tareas</span>
               <span class="stat-value" id="dashStatProgress">0</span>
               <span class="stat-label">En curso</span>
             </div>
             <div class="stat-tile stat-interviews stat-today" id="dashStatTodayTile">
+              <span class="stat-cat">Entrev.</span>
               <span class="stat-value" id="dashStatToday">0</span>
-              <span class="stat-label">Entrevistas hoy</span>
+              <span class="stat-label">Hoy</span>
             </div>
             <div class="stat-tile stat-interviews">
+              <span class="stat-cat">Entrev.</span>
               <span class="stat-value" id="dashStatWeek">0</span>
-              <span class="stat-label">Esta semana</span>
+              <span class="stat-label">Esta sem.</span>
             </div>
           </div>
 
           <div class="panel task-panel">
             <div class="task-tabs" role="tablist" aria-label="Vista del dashboard">
               <span class="tabs-indicator" aria-hidden="true"></span>
-              <button class="active" type="button" data-dash-tab="tasks">Tareas</button>
-              <button type="button" data-dash-tab="interviews">Entrevistas</button>
+              <button class="active" type="button" data-dash-tab="tasks">Mis tareas</button>
+              <button type="button" data-dash-tab="interviews">Mis entrevistas</button>
             </div>
             <div id="dashTaskList" class="list"></div>
             <div id="dashInterviewList" class="list hidden"></div>

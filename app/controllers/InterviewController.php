@@ -36,11 +36,8 @@ class InterviewController extends Controller
             Response::error('VALIDATION', 'El nombre del entrevistado es obligatorio.', 422);
             return;
         }
-        $date = ($input['scheduled_date'] ?? '') ?: null;
-        if (!$date) {
-            Response::error('VALIDATION', 'La fecha es obligatoria.', 422);
-            return;
-        }
+        $date        = ($input['scheduled_date'] ?? '') ?: null;
+        $interviewer = ($input['interviewer_id'] ?? '') ?: null;
         $id = uuid();
         $stmt = $this->db->prepare(
             'INSERT INTO interviews
@@ -53,13 +50,25 @@ class InterviewController extends Controller
             $interviewee,
             $date,
             ($input['scheduled_time'] ?? '') ?: null,
-            ($input['interviewer_id'] ?? '') ?: null,
+            $interviewer,
             trim($input['notes'] ?? '') ?: null,
             $user['id'],
             $user['id'],
             now_utc(),
             now_utc(),
         ]);
+
+        // Push notifications (non-personal areas only)
+        $push = new PushService($this->db);
+        if (!$push->isPersonalArea($areaId)) {
+            if ($interviewer) {
+                $dateStr = $date ? " · $date" : '';
+                $push->sendToUser($interviewer, 'Entrevista asignada', "$interviewee$dateStr");
+            } else {
+                $push->sendToAreaMembers($areaId, $user['id'], 'Nueva entrevista sin entrevistador', $interviewee);
+            }
+        }
+
         Response::json(['id' => $id], 201);
     }
 
@@ -78,13 +87,16 @@ class InterviewController extends Controller
             Response::error('VALIDATION', 'El nombre del entrevistado es obligatorio.', 422);
             return;
         }
-        $date = ($input['scheduled_date'] ?? '') ?: null;
-        if (!$date) {
-            Response::error('VALIDATION', 'La fecha es obligatoria.', 422);
-            return;
-        }
-        $completed = isset($input['completed']) ? (int) $input['completed'] : (int) $interview['completed'];
-        $completedAt = $completed ? ($interview['completed_at'] ?: now_utc()) : null;
+        $newDate        = ($input['scheduled_date'] ?? '') ?: null;
+        $newTime        = ($input['scheduled_time'] ?? '') ?: null;
+        $newInterviewer = ($input['interviewer_id'] ?? '') ?: null;
+        $newCompleted   = isset($input['completed']) ? (int) $input['completed'] : (int) $interview['completed'];
+        $completedAt    = $newCompleted ? ($interview['completed_at'] ?: now_utc()) : null;
+
+        $oldDate        = $interview['scheduled_date'] ?: null;
+        $oldTime        = $interview['scheduled_time']  ?: null;
+        $oldInterviewer = $interview['interviewer_id']  ?: null;
+        $oldCompleted   = (int) $interview['completed'];
 
         $stmt = $this->db->prepare(
             'UPDATE interviews
@@ -94,16 +106,35 @@ class InterviewController extends Controller
         );
         $stmt->execute([
             $interviewee,
-            $date,
-            ($input['scheduled_time'] ?? '') ?: null,
-            ($input['interviewer_id'] ?? '') ?: null,
+            $newDate,
+            $newTime,
+            $newInterviewer,
             trim($input['notes'] ?? '') ?: null,
-            $completed,
+            $newCompleted,
             $completedAt,
             $user['id'],
             now_utc(),
             $id,
         ]);
+
+        // Push notifications (non-personal areas only)
+        $push = new PushService($this->db);
+        if (!$push->isPersonalArea($interview['work_area_id'])) {
+            if ($newInterviewer && $newInterviewer !== $oldInterviewer) {
+                // Newly assigned interviewer
+                $dateStr = $newDate ? " · $newDate" : '';
+                $push->sendToUser($newInterviewer, 'Entrevista asignada', "$interviewee$dateStr");
+            } elseif ($newInterviewer && ($newDate !== $oldDate || $newTime !== $oldTime)) {
+                // Same interviewer but date/time changed
+                $timeStr = ($newTime && $newTime !== '00:00:00') ? ' ' . substr($newTime, 0, 5) : '';
+                $push->sendToUser($newInterviewer, 'Entrevista reprogramada', "$interviewee · " . ($newDate ?? 'sin fecha') . $timeStr);
+            }
+            if ($newCompleted !== $oldCompleted && $newInterviewer) {
+                $label = $newCompleted ? 'marcada como realizada' : 'marcada como pendiente';
+                $push->sendToUser($newInterviewer, 'Entrevista actualizada', "$interviewee: $label");
+            }
+        }
+
         Response::json(['ok' => true]);
     }
 

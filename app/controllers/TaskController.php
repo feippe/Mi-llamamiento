@@ -45,6 +45,7 @@ class TaskController extends Controller
             Response::error('VALIDATION', 'El título es obligatorio.', 422);
             return;
         }
+        $assignedTo = ($input['assigned_to'] ?? '') ?: null;
         $id = uuid();
         $stmt = $this->db->prepare(
             'INSERT INTO tasks (id, work_area_id, title, description, start_date, due_date, status, assigned_to, created_by, updated_by, created_at, updated_at)
@@ -58,12 +59,23 @@ class TaskController extends Controller
             ($input['start_date'] ?? '') ?: null,
             ($input['due_date'] ?? '') ?: null,
             $input['status'] ?? 'pending',
-            ($input['assigned_to'] ?? '') ?: null,
+            $assignedTo,
             $user['id'],
             $user['id'],
             now_utc(),
             now_utc(),
         ]);
+
+        // Push notifications (non-personal areas only)
+        $push = new PushService($this->db);
+        if (!$push->isPersonalArea($areaId)) {
+            if ($assignedTo) {
+                $push->sendToUser($assignedTo, 'Nueva tarea asignada', "Se te asignó: $title");
+            } else {
+                $push->sendToAreaMembers($areaId, $user['id'], 'Nueva tarea sin responsable', $title);
+            }
+        }
+
         Response::json(['id' => $id], 201);
     }
 
@@ -82,6 +94,11 @@ class TaskController extends Controller
             Response::error('VALIDATION', 'El título es obligatorio.', 422);
             return;
         }
+        $newAssigned = ($input['assigned_to'] ?? '') ?: null;
+        $newStatus   = $input['status'] ?? 'pending';
+        $oldAssigned = $task['assigned_to'] ?: null;
+        $oldStatus   = $task['status'];
+
         $stmt = $this->db->prepare(
             'UPDATE tasks SET title = ?, description = ?, start_date = ?, due_date = ?, status = ?, assigned_to = ?, updated_by = ?, updated_at = ? WHERE id = ?'
         );
@@ -90,12 +107,28 @@ class TaskController extends Controller
             trim($input['description'] ?? '') ?: null,
             ($input['start_date'] ?? '') ?: null,
             ($input['due_date'] ?? '') ?: null,
-            $input['status'] ?? 'pending',
-            ($input['assigned_to'] ?? '') ?: null,
+            $newStatus,
+            $newAssigned,
             $user['id'],
             now_utc(),
             $id,
         ]);
+
+        // Push notifications (non-personal areas only)
+        $push = new PushService($this->db);
+        if (!$push->isPersonalArea($task['work_area_id'])) {
+            $statusLabels = ['pending' => 'Pendiente', 'in_progress' => 'En curso', 'done' => 'Hecha'];
+
+            if ($newAssigned && $newAssigned !== $oldAssigned) {
+                // New user assigned
+                $push->sendToUser($newAssigned, 'Tarea asignada', "Se te asignó: $title");
+            } elseif ($newStatus !== $oldStatus && $newAssigned) {
+                // Status changed for existing assignee
+                $label = $statusLabels[$newStatus] ?? $newStatus;
+                $push->sendToUser($newAssigned, 'Estado de tarea actualizado', "$title → $label");
+            }
+        }
+
         Response::json(['ok' => true]);
     }
 

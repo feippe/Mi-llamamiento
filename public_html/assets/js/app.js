@@ -2,6 +2,9 @@ let csrf = '';
 let currentUser = null;
 let canManageSettings = false;
 let adminCatalog = null;
+let _profileLoadedAt = 0;
+const _PROFILE_TTL = 5 * 60 * 1000;
+let _vapidPublicKey = null;
 
 let state = {
   units: [],
@@ -18,14 +21,199 @@ let state = {
   minFilter: 'upcoming',
   myMinisteringOnly: false,
   activeAreaId: null,
-  activeView: 'tasks',
+  activeView: 'dashboard',
+  dashTab: 'tasks',
+  dashboard: { tasks: [], interviews: [] },
   taskFilter: 'open',
+  myTasksOnly: true,
   interviewFilter: 'upcoming',
   myInterviewsOnly: false,
 };
 
 const $ = selector => document.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+function haptic() { navigator.vibrate?.(10); }
+
+// ── Web Audio micro-sounds ────────────────────────────────────────────────────
+let _ac = null;
+function _audioCtx() {
+  if (!_ac || _ac.state === 'closed') _ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ac.state === 'suspended') _ac.resume();
+  return _ac;
+}
+
+function _tone(freq, duration, { type = 'sine', gainStart = 0.18, gainEnd = 0, freqEnd = null, delay = 0 } = {}) {
+  try {
+    const ac = _audioCtx();
+    const t0 = ac.currentTime + delay;
+    const t1 = t0 + duration;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t1);
+    gain.gain.setValueAtTime(gainStart, t0);
+    gain.gain.linearRampToValueAtTime(gainEnd, t1);
+    osc.start(t0);
+    osc.stop(t1);
+  } catch (_) {}
+}
+
+function soundTap()    { _tone(880, 0.05, { gainStart: 0.10, freqEnd: 700 }); }
+function soundNav()    { _tone(660, 0.07, { gainStart: 0.12, freqEnd: 520 }); }
+function soundToggle() { _tone(580, 0.09, { type: 'triangle', gainStart: 0.14, freqEnd: 440 }); }
+function soundOpen()   { _tone(320, 0.12, { gainStart: 0.13, freqEnd: 680 }); }
+function soundClose()  { _tone(560, 0.10, { gainStart: 0.12, freqEnd: 300 }); }
+function soundSave() {
+  _tone(523, 0.10, { gainStart: 0.15, gainEnd: 0.02 });
+  _tone(784, 0.14, { gainStart: 0.15, gainEnd: 0, delay: 0.09 });
+}
+function soundDelete() {
+  _tone(440, 0.07, { type: 'triangle', gainStart: 0.14 });
+  _tone(330, 0.10, { type: 'triangle', gainStart: 0.12, gainEnd: 0, delay: 0.07 });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Swipe actions (left = delete, right = status/toggle) ─────────────────────
+const _SWIPE_W  = 160;  // action button width = slide distance (px)
+const _SWIPE_AT = 72;   // threshold to snap open (px)
+let _openSwipeRow = null;
+let _swipeG = null;
+
+function _snapSwipeRow(row, open, dir = 'left') {
+  const card  = row.querySelector('.swipe-card');
+  const left  = row.querySelector('.swipe-left-action');
+  const right = row.querySelector('.swipe-delete-action');
+  const ease  = 'transform 0.22s cubic-bezier(.25,.46,.45,.94)';
+  [card, left, right].forEach(el => { if (el) el.style.transition = ease; });
+  if (!open) {
+    [card, left, right].forEach(el => { if (el) el.style.transform = 'translateX(0)'; });
+    row.classList.remove('is-open');
+    delete row.dataset.openDir;
+    row.style.background = '';
+    if (_openSwipeRow === row) _openSwipeRow = null;
+  } else if (dir === 'right') {
+    if (card)  card.style.transform  = `translateX(${_SWIPE_W}px)`;
+    if (left)  left.style.transform  = `translateX(${_SWIPE_W}px)`;
+    if (right) right.style.transform = 'translateX(0)';
+    row.classList.add('is-open');
+    row.dataset.openDir = 'right';
+    row.style.background = left?.dataset.actionBg || '#6b7280';
+    _openSwipeRow = row;
+  } else {
+    if (card)  card.style.transform  = `translateX(-${_SWIPE_W}px)`;
+    if (right) right.style.transform = `translateX(-${_SWIPE_W}px)`;
+    if (left)  left.style.transform  = 'translateX(0)';
+    row.classList.add('is-open');
+    row.dataset.openDir = 'left';
+    row.style.background = '#ef4444';
+    _openSwipeRow = row;
+  }
+}
+
+function _closeOpenSwipeRow() {
+  if (_openSwipeRow) _snapSwipeRow(_openSwipeRow, false);
+}
+
+function _swipeRowDelete(row, apiFn) {
+  if (_openSwipeRow === row) _openSwipeRow = null;
+  soundDelete(); haptic();
+  const card  = row.querySelector('.swipe-card');
+  const left  = row.querySelector('.swipe-left-action');
+  const right = row.querySelector('.swipe-delete-action');
+  const h = row.offsetHeight;
+  row.style.maxHeight = h + 'px';
+  row.style.overflow = 'hidden';
+  const exitTx = 'transform 0.18s ease-in';
+  [card, left, right].forEach(el => {
+    if (el) { el.style.transition = exitTx; el.style.transform = 'translateX(-120%)'; }
+  });
+  setTimeout(() => {
+    row.style.transition = 'max-height 0.28s ease, opacity 0.2s ease';
+    row.style.maxHeight = '0';
+    row.style.opacity = '0';
+  }, 140);
+  setTimeout(() => { row.remove(); apiFn(); }, 400);
+}
+
+function _attachSwipe(container) {
+  container.addEventListener('touchstart', e => {
+    const row = e.target.closest('.swipe-row');
+    if (!row) { _closeOpenSwipeRow(); return; }
+    if (e.target.closest('.swipe-delete-action') || e.target.closest('.swipe-left-action')) return;
+    if (_openSwipeRow && _openSwipeRow !== row) _snapSwipeRow(_openSwipeRow, false);
+    const t = e.touches[0];
+    const card  = row.querySelector('.swipe-card');
+    const left  = row.querySelector('.swipe-left-action');
+    const right = row.querySelector('.swipe-delete-action');
+    _swipeG = { row, card, left, right, startX: t.clientX, startY: t.clientY, dir: null, moved: false, openDir: row.dataset.openDir || '' };
+    [card, left, right].forEach(el => { if (el) el.style.transition = 'none'; });
+  }, { passive: true });
+
+  container.addEventListener('touchmove', e => {
+    if (!_swipeG?.card) return;
+    const t = e.touches[0];
+    const dx = t.clientX - _swipeG.startX;
+    const dy = t.clientY - _swipeG.startY;
+    if (!_swipeG.dir) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      _swipeG.dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+    }
+    if (_swipeG.dir === 'v') { _swipeG = null; return; }
+    e.preventDefault();
+    _swipeG.moved = true;
+    const base = _swipeG.openDir === 'right' ? _SWIPE_W : (_swipeG.openDir === 'left' ? -_SWIPE_W : 0);
+    const maxX  = _swipeG.left ? _SWIPE_W : 0;
+    const x = Math.max(-_SWIPE_W, Math.min(maxX, base + dx));
+    _swipeG.card.style.transform = `translateX(${x}px)`;
+    if (x <= 0 && _swipeG.right) _swipeG.right.style.transform = `translateX(${x}px)`;
+    if (x >= 0 && _swipeG.left)  _swipeG.left.style.transform  = `translateX(${x}px)`;
+  }, { passive: false });
+
+  const onEnd = () => {
+    if (!_swipeG) return;
+    const { row, card, left, moved, openDir } = _swipeG;
+    _swipeG = null;
+    if (!moved || !card) return;
+    const m = card.style.transform.match(/translateX\((-?[\d.]+)px\)/);
+    const x = m ? parseFloat(m[1]) : 0;
+    if      (openDir === 'right') _snapSwipeRow(row, x >  _SWIPE_W / 3, 'right');
+    else if (openDir === 'left')  _snapSwipeRow(row, x < -_SWIPE_W / 3, 'left');
+    else if (x < -_SWIPE_AT)     _snapSwipeRow(row, true, 'left');
+    else if (left && x > _SWIPE_AT) _snapSwipeRow(row, true, 'right');
+    else                          _snapSwipeRow(row, false);
+  };
+  container.addEventListener('touchend',   onEnd, { passive: true });
+  container.addEventListener('touchcancel', onEnd, { passive: true });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function hideSplash() {
+  const s = $('#splashScreen');
+  if (!s) return;
+  s.classList.add('splash-hiding');
+  setTimeout(() => s.remove(), 420);
+}
+
+function showLoader() { $('#contentLoader')?.classList.remove('hidden'); }
+function hideLoader() { $('#contentLoader')?.classList.add('hidden'); }
+
+let _modalCount = 0;
+function openModal(el) {
+  if (el.open) return;
+  _closeOpenSwipeRow();
+  if (++_modalCount === 1) document.documentElement.classList.add('modal-open');
+  soundOpen();
+  el.showModal();
+}
+function closeModal(el) {
+  el.close();
+  soundClose();
+  if (--_modalCount <= 0) { _modalCount = 0; document.documentElement.classList.remove('modal-open'); }
+}
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -45,6 +233,7 @@ async function init() {
 }
 
 function wireEvents() {
+  $('#forceUpdateBtn').addEventListener('click', forceUpdate);
   $('#showRegister').addEventListener('click', () => toggleAuth('register'));
   $('#showLogin').addEventListener('click', () => toggleAuth('login'));
   $('#loginForm').addEventListener('submit', login);
@@ -65,13 +254,15 @@ function wireEvents() {
   $('#callingForm').addEventListener('submit', requestCalling);
 
   $('#areaTag').addEventListener('click', e => { e.stopPropagation(); toggleAreaOptions(); });
-  $('#goToProfileBtn').addEventListener('click', () => showView('profile'));
   $('#saveNewTaskBtn').addEventListener('click', closeTaskDialog);
   $('#newTaskBtn').addEventListener('click', () => openTaskDialog());
+  $$('[data-dash-tab]').forEach(button => button.addEventListener('click', () => setDashTab(button.dataset.dashTab)));
   $$('[data-task-filter]').forEach(button => button.addEventListener('click', () => setTaskFilter(button.dataset.taskFilter)));
+  $('#myTasksOnly').addEventListener('change', () => { state.myTasksOnly = $('#myTasksOnly').checked; renderTasks(); renderTaskStats(); });
   $('#taskForm').addEventListener('submit', e => e.preventDefault());
   $('#closeTaskBtn').addEventListener('click', closeTaskDialog);
   $('#taskDialog').addEventListener('cancel', e => { e.preventDefault(); closeTaskDialog(); });
+  $('#taskDialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeTaskDialog(); });
   $('#deleteTaskBtn').addEventListener('click', deleteTask);
   $('#taskDescription').addEventListener('input', () => {
     autoResizeTextarea($('#taskDescription'));
@@ -86,6 +277,7 @@ function wireEvents() {
   $$('#statusOptions [data-status]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); pickStatus(btn.dataset.status, true); }));
   $('#responsibleTag').addEventListener('click', e => { e.stopPropagation(); toggleResponsibleOptions(); });
   document.addEventListener('click', e => {
+    if (!e.target.closest('.swipe-row')) _closeOpenSwipeRow();
     if (!$('#statusPicker').contains(e.target)) closeStatusOptions();
     if (!$('#responsiblePicker').contains(e.target)) closeResponsibleOptions();
     if (!$('#areaPicker').contains(e.target)) closeAreaOptions();
@@ -120,6 +312,7 @@ function wireEvents() {
   $('#addInterviewBtn').addEventListener('click', () => openInterviewDialog());
   $('#closeInterviewBtn').addEventListener('click', closeInterviewDialog);
   $('#interviewDialog').addEventListener('cancel', e => { e.preventDefault(); closeInterviewDialog(); });
+  $('#interviewDialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeInterviewDialog(); });
   $('#deleteInterviewBtn').addEventListener('click', deleteInterview);
   $('#saveNewInterviewBtn').addEventListener('click', closeInterviewDialog);
   $('#interviewForm').addEventListener('submit', e => e.preventDefault());
@@ -129,8 +322,14 @@ function wireEvents() {
     scheduleInterviewAutosave();
   });
   $('#intervieweeName').addEventListener('input', () => scheduleInterviewAutosave());
-  $('#interviewDate').addEventListener('change', () => scheduleInterviewAutosave(true));
-  $('#interviewTime').addEventListener('change', () => scheduleInterviewAutosave(true));
+  $('#interviewDateDisplay').addEventListener('click', () => startInterviewDateEdit('date'));
+  $('#interviewTimeDisplay').addEventListener('click', () => startInterviewDateEdit('time'));
+  $('#interviewDateClear').addEventListener('click', () => { setInterviewDateDisplay('date', ''); scheduleInterviewAutosave(); });
+  $('#interviewTimeClear').addEventListener('click', () => { setInterviewDateDisplay('time', ''); scheduleInterviewAutosave(); });
+  $('#interviewDate').addEventListener('change', () => commitInterviewDateEdit('date'));
+  $('#interviewDate').addEventListener('blur', () => commitInterviewDateEdit('date'));
+  $('#interviewTime').addEventListener('change', () => commitInterviewDateEdit('time'));
+  $('#interviewTime').addEventListener('blur', () => commitInterviewDateEdit('time'));
   $('#interviewCompletedCheck').addEventListener('change', () => scheduleInterviewAutosave(true));
   document.addEventListener('click', e => {
     if (!$('#interviewerPicker').contains(e.target)) closeInterviewerOptions();
@@ -143,23 +342,47 @@ function wireEvents() {
   $('#addPairBtn').addEventListener('click', () => openPairDialog());
   $('#closePairDialogBtn').addEventListener('click', closePairDialog);
   $('#pairDialog').addEventListener('cancel', e => { e.preventDefault(); closePairDialog(); });
+  $('#pairDialog').addEventListener('click', e => { if (e.target === e.currentTarget) closePairDialog(); });
   $('#deletePairBtn').addEventListener('click', deletePair);
   $('#pairForm').addEventListener('submit', e => { e.preventDefault(); savePair(); });
   $('#prevQuarterBtn').addEventListener('click', () => navigateQuarter(-1));
   $('#nextQuarterBtn').addEventListener('click', () => navigateQuarter(1));
   $('#closeMinisteringInterviewBtn').addEventListener('click', closeMinisteringInterview);
   $('#ministeringInterviewDialog').addEventListener('cancel', e => { e.preventDefault(); closeMinisteringInterview(); });
+  $('#ministeringInterviewDialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeMinisteringInterview(); });
   $('#minInterviewerTag').addEventListener('click', e => { e.stopPropagation(); toggleMinInterviewerOptions(); });
-  $('#minInterviewDate').addEventListener('change', () => scheduleMinisteringAutosave(true));
-  $('#minInterviewTime').addEventListener('change', () => scheduleMinisteringAutosave(true));
+  $('#minInterviewDateDisplay').addEventListener('click', () => startMinInterviewDateEdit('date'));
+  $('#minInterviewTimeDisplay').addEventListener('click', () => startMinInterviewDateEdit('time'));
+  $('#minInterviewDateClear').addEventListener('click', () => { setMinInterviewDateDisplay('date', ''); scheduleMinisteringAutosave(); });
+  $('#minInterviewTimeClear').addEventListener('click', () => { setMinInterviewDateDisplay('time', ''); scheduleMinisteringAutosave(); });
+  $('#minInterviewDate').addEventListener('change', () => commitMinInterviewDateEdit('date'));
+  $('#minInterviewDate').addEventListener('blur', () => commitMinInterviewDateEdit('date'));
+  $('#minInterviewTime').addEventListener('change', () => commitMinInterviewDateEdit('time'));
+  $('#minInterviewTime').addEventListener('blur', () => commitMinInterviewDateEdit('time'));
   $('#minInterviewNotes').addEventListener('input', () => { autoResizeTextarea($('#minInterviewNotes')); scheduleMinisteringAutosave(); });
   $('#minInterviewCompletedCheck').addEventListener('change', () => scheduleMinisteringAutosave(true));
+
+  const NAV_SELECTOR = '[data-nav]';
+  const TAP_SELECTORS = '[data-dash-tab], [data-task-filter], [data-interview-tab], [data-interview-filter], [data-min-filter], #prevQuarterBtn, #nextQuarterBtn';
+  document.addEventListener('touchstart', e => {
+    if (e.target.closest(NAV_SELECTOR)) { haptic(); }
+    else if (e.target.closest(TAP_SELECTORS)) { haptic(); soundTap(); }
+  }, { passive: true });
+  document.addEventListener('change', e => {
+    if (e.target.matches('input[type="checkbox"]')) { haptic(); soundTap(); }
+  });
+
+  _attachSwipe($('#taskList'));
+  _attachSwipe($('#interviewList'));
+  _attachSwipe($('#dashTaskList'));
+  _attachSwipe($('#dashInterviewList'));
 }
 
 async function initSession() {
   const data = await api('/api/csrf');
   csrf = data.csrf;
   currentUser = data.user;
+  _vapidPublicKey = data.vapidPublicKey || null;
   if (currentUser) {
     await enterApp();
   } else {
@@ -201,6 +424,7 @@ async function logout() {
   });
   if (!confirmed) return;
   await api('/api/logout', { method: 'POST' });
+  localStorage.removeItem('activeAreaId');
   currentUser = null;
   canManageSettings = false;
   adminCatalog = null;
@@ -212,18 +436,23 @@ async function enterApp() {
   $('#appShell').classList.remove('hidden');
   $('#userLabel').textContent = currentUser.name || currentUser.email;
   initIosInstallBanner();
+  initPush();
+  const minWait = new Promise(r => setTimeout(r, 700));
   await loadProfile();
   await loadCatalogs();
   await loadAreas();
   await loadUserCallings();
   renderAdminVisibility();
-  showView('tasks');
+  await showView('dashboard');
+  await minWait;
+  hideSplash();
 }
 
 function showAuth() {
   $('#appShell').classList.add('hidden');
   $('#authView').classList.remove('hidden');
   toggleAuth('login');
+  hideSplash();
 }
 
 function toggleAuth(mode) {
@@ -231,26 +460,44 @@ function toggleAuth(mode) {
   $('#registerForm').classList.toggle('hidden', mode !== 'register');
 }
 
+const _VIEW_TITLES = { dashboard: 'Inicio', tasks: 'Tareas', interviews: 'Entrevistas', profile: 'Perfil', settings: 'Ajustes' };
+
 async function showView(view) {
   state.activeView = view;
+  $('#appTitle').textContent = _VIEW_TITLES[view] || 'Mi Llamamiento';
   $$('.view').forEach(section => section.classList.remove('active-view'));
   $(`#${view}View`).classList.add('active-view');
   $$('[data-nav]').forEach(button => button.classList.toggle('active', button.dataset.nav === view));
   moveIndicator($('.bottom-nav'), $('.nav-indicator'), $('.bottom-nav button.active'));
   const showAreaCard = view === 'tasks' || view === 'interviews';
   $('#sharedAreaCard').classList.toggle('hidden', !showAreaCard);
+  if (view === 'dashboard') {
+    showLoader();
+    await loadDashboard();
+    hideLoader();
+    moveIndicator($('#dashboardView .task-tabs'), $('#dashboardView .tabs-indicator'), $('#dashboardView .task-tabs button.active'));
+  }
   if (view === 'profile') {
-    await loadProfile();
-    await loadUserCallings();
+    const now = Date.now();
+    if (now - _profileLoadedAt > _PROFILE_TTL) {
+      await loadProfile();
+      await loadUserCallings();
+      _profileLoadedAt = now;
+    }
   }
   if (view === 'settings') {
     showSettingsScreen('settingsHome');
   }
   if (view === 'tasks') {
-    moveIndicator($('.task-tabs'), $('.tabs-indicator'), $('.task-tabs button.active'));
+    showLoader();
+    await loadTasks();
+    hideLoader();
+    moveIndicator($('#tasksView .task-tabs'), $('#tasksView .tabs-indicator'), $('#tasksView .task-tabs button.active'));
   }
   if (view === 'interviews') {
+    showLoader();
     await loadInterviews();
+    hideLoader();
     setInterviewTab('calling');
     moveIndicator($('#interviewFilterSegs'), $('#interviewFilterSegs .tabs-indicator'), $('[data-interview-filter].active'));
   }
@@ -267,7 +514,7 @@ function moveIndicator(container, indicator, active) {
 function syncIndicators() {
   moveIndicator($('.bottom-nav'), $('.nav-indicator'), $('.bottom-nav button.active'));
   if (state.activeView === 'tasks') {
-    moveIndicator($('.task-tabs'), $('.tabs-indicator'), $('.task-tabs button.active'));
+    moveIndicator($('#tasksView .task-tabs'), $('#tasksView .tabs-indicator'), $('#tasksView .task-tabs button.active'));
   }
   if (state.activeView === 'interviews') {
     moveIndicator($('#interviewSubTabs'), $('#interviewSubTabs .tabs-indicator'), $('[data-interview-tab].active'));
@@ -292,6 +539,7 @@ async function saveProfile(event) {
   try {
     const result = await api('/api/profile', { method: 'PUT', body: formData(event.currentTarget) });
     currentUser = result.user;
+    _profileLoadedAt = Date.now();
     $('#profileForm').elements.current_password.value = '';
     $('#profileForm').elements.new_password.value = '';
     $('#profileStatus').textContent = 'Perfil actualizado.';
@@ -351,6 +599,7 @@ async function requestCalling(event) {
       : 'Solicitud creada. Queda pendiente de aprobación.';
     await loadAreas();
     await loadUserCallings();
+    _profileLoadedAt = 0;
     hideCallingForm(false);
     if (state.activeView === 'settings') await loadRequests();
   } catch (error) {
@@ -378,6 +627,7 @@ async function removeCalling(id) {
   await loadAreas();
   await loadUserCallings();
   await loadProfile();
+  _profileLoadedAt = Date.now();
 }
 
 async function loadAreas() {
@@ -394,13 +644,18 @@ async function loadAreas() {
       btn.addEventListener('click', async e => {
         e.stopPropagation();
         pickArea(btn.dataset.areaId, btn.dataset.areaName, btn.dataset.areaUnit);
+        showLoader();
         await loadMembers();
         await loadTasks();
         if (state.activeView === 'interviews') await loadInterviews();
+        if (state.activeView === 'dashboard') await loadDashboard();
+        hideLoader();
       });
     });
-    const first = activeAreas[0];
-    pickArea(first.id, first.name, first.unit_name || '');
+    const savedId = localStorage.getItem('activeAreaId');
+    const saved = savedId && activeAreas.find(a => a.id === savedId);
+    const initial = saved || activeAreas[0];
+    pickArea(initial.id, initial.name, initial.unit_name || '');
   } else {
     container.innerHTML = '<div style="padding:12px 14px;color:var(--muted);font-size:13px;">No tienes áreas activas.</div>';
     pickArea('', '', '');
@@ -412,13 +667,17 @@ async function loadAreas() {
 function pickArea(id, name, unit) {
   state.activeAreaId = id || null;
   state.activeArea = id ? (state.areas.find(a => a.id === id) || null) : null;
+  if (id) localStorage.setItem('activeAreaId', id);
+  else localStorage.removeItem('activeAreaId');
+
+  $('#taskMineRow').classList.toggle('hidden', isPersonalArea());
 
   const hasInterviews = state.activeArea && Number(state.activeArea.has_interviews) === 1;
   const interviewsBtn = $('[data-nav="interviews"]');
   interviewsBtn.classList.toggle('hidden', !hasInterviews);
-  $('.bottom-nav').classList.toggle('nav-3col', !hasInterviews);
+  $('.bottom-nav').classList.toggle('nav-4col', !hasInterviews);
   if (!hasInterviews && state.activeView === 'interviews') {
-    showView('tasks');
+    showView('dashboard');
   } else {
     requestAnimationFrame(() => moveIndicator($('.bottom-nav'), $('.nav-indicator'), $('.bottom-nav button.active')));
   }
@@ -458,8 +717,283 @@ async function loadTasks() {
   renderTaskStats();
 }
 
+// ── Dashboard ────────────────────────────────────────────────────────────────
+
+async function loadDashboard() {
+  const data = await api('/api/dashboard');
+  state.dashboard.tasks = data.tasks;
+  state.dashboard.interviews = data.interviews;
+  renderDashboard();
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function daysFromToday(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [ty, tm, td] = todayStr().split('-').map(Number);
+  const ms = Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td);
+  return Math.round(ms / 86400000);
+}
+
+function urgencyBadge(dateStr, status) {
+  if (!dateStr || status === 'done') return '';
+  const days = daysFromToday(dateStr);
+  if (days < 0) return `<span class="badge red">Vencida</span>`;
+  if (days === 0) return `<span class="badge yellow">Hoy</span>`;
+  if (days <= 7) return `<span class="badge yellow">En ${days}d</span>`;
+  return '';
+}
+
+function interviewUrgencyBadge(dateStr) {
+  if (!dateStr) return '';
+  const days = daysFromToday(dateStr);
+  if (days < 0) return `<span class="badge red">Vencida</span>`;
+  if (days === 0) return `<span class="badge yellow">Hoy</span>`;
+  if (days <= 7) return `<span class="badge yellow">En ${days}d</span>`;
+  return `<span class="badge">${formatDate(dateStr)}</span>`;
+}
+
+function renderDashboard() {
+  const tasks = state.dashboard.tasks;
+  const interviews = state.dashboard.interviews;
+
+  const taskDueTodayCount = tasks.filter(t => {
+    if (t.status === 'done' || !t.due_date) return false;
+    return daysFromToday(String(t.due_date).split(' ')[0]) === 0;
+  }).length;
+  const taskDueWeekCount = tasks.filter(t => {
+    if (t.status === 'done' || !t.due_date) return false;
+    const days = daysFromToday(String(t.due_date).split(' ')[0]);
+    return days !== null && days >= 0 && days <= 7;
+  }).length;
+  const todayCount = interviews.filter(i => {
+    const d = i.scheduled_date ? String(i.scheduled_date).split(' ')[0] : '';
+    return d && daysFromToday(d) === 0;
+  }).length;
+  const weekCount = interviews.filter(i => {
+    const d = i.scheduled_date ? String(i.scheduled_date).split(' ')[0] : '';
+    if (!d) return false;
+    const days = daysFromToday(d);
+    return days >= 0 && days <= 7;
+  }).length;
+
+  $('#dashStatDueToday').textContent = taskDueTodayCount;
+  $('#dashStatDueWeek').textContent  = taskDueWeekCount;
+  $('#dashStatToday').textContent    = todayCount;
+  $('#dashStatWeek').textContent     = weekCount;
+  $('#dashStatDueTodayTile').classList.toggle('has-due-today', taskDueTodayCount > 0);
+  $('#dashStatTodayTile').classList.toggle('has-today', todayCount > 0);
+
+  if (state.dashTab === 'tasks') renderDashTasks();
+  else renderDashInterviews();
+}
+
+function setDashTab(tab) {
+  state.dashTab = tab;
+  $$('[data-dash-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.dashTab === tab));
+  moveIndicator($('#dashboardView .task-tabs'), $('#dashboardView .tabs-indicator'), $('#dashboardView .task-tabs button.active'));
+  $('#dashTaskList').classList.toggle('hidden', tab !== 'tasks');
+  $('#dashInterviewList').classList.toggle('hidden', tab !== 'interviews');
+  if (tab === 'tasks') renderDashTasks();
+  else renderDashInterviews();
+}
+
+function isTaskOverdue(t) {
+  if (!t.due_date || t.status === 'done') return false;
+  return daysFromToday(String(t.due_date).split(' ')[0]) < 0;
+}
+
+function isTaskDueToday(t) {
+  if (!t.due_date || t.status === 'done') return false;
+  return daysFromToday(String(t.due_date).split(' ')[0]) === 0;
+}
+
+function renderDashTasks() {
+  const sorted = [...state.dashboard.tasks].filter(t => t.status !== 'done').sort(compareTasks);
+  const container = $('#dashTaskList');
+  if (!sorted.length) {
+    container.innerHTML = '<div class="item"><p>No tienes tareas activas asignadas.</p></div>';
+    return;
+  }
+  container.innerHTML = sorted.map(t => {
+    const next = _NEXT_STATUS[t.status];
+    const action = _STATUS_ACTION[next];
+    return `
+    <div class="swipe-row">
+      <button class="swipe-left-action" data-dash-swipe-status="${t.id}"
+        style="background:${action.bg}" data-action-bg="${action.bg}" aria-label="${action.label}">
+        ${action.icon}${action.label}
+      </button>
+      <button class="item${isTaskOverdue(t) ? ' task-overdue' : isTaskDueToday(t) ? ' task-today' : ''} swipe-card" data-dash-task-id="${t.id}">
+        <header>
+          <strong>${escapeHtml(t.title)}</strong>
+          <span class="badge ${t.status === 'in_progress' ? 'yellow' : ''}">${statusLabel(t.status)}</span>
+        </header>
+        <div class="dash-urgency">
+          ${urgencyBadge(t.due_date, t.status)}
+          ${t.due_date ? `<span class="dash-date">Vence ${formatDate(t.due_date)}</span>` : '<span class="dash-date">Sin fecha</span>'}
+        </div>
+        <span class="dash-item-area">${escapeHtml(t.area_name)}${t.unit_name ? ' · ' + escapeHtml(t.unit_name) : ''}</span>
+      </button>
+      <button class="swipe-delete-action" data-dash-del-task="${t.id}" aria-label="Borrar tarea">${_TRASH_ICON}Borrar</button>
+    </div>`;
+  }).join('');
+  $$('#dashTaskList [data-dash-task-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.swipe-row');
+      if (row?.classList.contains('is-open')) { _snapSwipeRow(row, false); return; }
+      goToTask(btn.dataset.dashTaskId);
+    });
+  });
+  $$('#dashTaskList [data-dash-swipe-status]').forEach(btn => btn.addEventListener('click', async () => {
+    const id = btn.dataset.dashSwipeStatus;
+    const row = btn.closest('.swipe-row');
+    const task = state.dashboard.tasks.find(t => t.id === id);
+    if (!task) return;
+    soundSave(); haptic();
+    const nextStatus = _NEXT_STATUS[task.status];
+    _snapSwipeRow(row, false);
+    task.status = nextStatus;
+    renderDashboard();
+    try {
+      await api(`/api/tasks/${id}`, { method: 'PUT', body: {
+        title: task.title,
+        description: task.description || '',
+        status: nextStatus,
+        assigned_to: task.assigned_to || '',
+        start_date: String(task.start_date || '').split(' ')[0],
+        due_date: String(task.due_date || '').split(' ')[0],
+        work_area_id: task.work_area_id,
+      }});
+    } catch (_) { await loadDashboard(); }
+  }));
+  $$('#dashTaskList [data-dash-del-task]').forEach(btn => btn.addEventListener('click', () => {
+    const id = btn.dataset.dashDelTask;
+    _swipeRowDelete(btn.closest('.swipe-row'), async () => {
+      state.dashboard.tasks = state.dashboard.tasks.filter(t => t.id !== id);
+      renderDashboard();
+      try { await api(`/api/tasks/${id}`, { method: 'DELETE' }); }
+      catch (_) { await loadDashboard(); }
+    });
+  }));
+}
+
+function renderDashInterviews() {
+  const today = todayStr();
+  const sorted = [...state.dashboard.interviews].sort(compareInterviews);
+  const container = $('#dashInterviewList');
+  if (!sorted.length) {
+    container.innerHTML = '<div class="item"><p>No tienes entrevistas próximas asignadas.</p></div>';
+    return;
+  }
+  container.innerHTML = sorted.map(i => {
+    const isToday = i.scheduled_date && String(i.scheduled_date).split(' ')[0] === today;
+    const completed = Number(i.completed);
+    const doneAction = completed
+      ? { label: 'Pendiente', bg: '#6b7280', icon: _RESET_ICON }
+      : { label: 'Realizada', bg: '#10b981', icon: _CHECK_ICON };
+    return `
+    <div class="swipe-row">
+      <button class="swipe-left-action" data-dash-swipe-done="${i.id}"
+        style="background:${doneAction.bg}" data-action-bg="${doneAction.bg}" aria-label="${doneAction.label}">
+        ${doneAction.icon}${doneAction.label}
+      </button>
+      <button class="item${isToday ? ' interview-today' : ''} swipe-card" data-dash-interview-id="${i.id}">
+        <header>
+          <strong>${escapeHtml(i.interviewee)}</strong>
+          ${interviewUrgencyBadge(i.scheduled_date)}
+        </header>
+        <p>${formatInterviewDate(i.scheduled_date, i.scheduled_time)}</p>
+        <span class="dash-item-area">${escapeHtml(i.area_name)}${i.unit_name ? ' · ' + escapeHtml(i.unit_name) : ''}</span>
+      </button>
+      <button class="swipe-delete-action" data-dash-del-interview="${i.id}" aria-label="Borrar entrevista">${_TRASH_ICON}Borrar</button>
+    </div>`;
+  }).join('');
+  $$('#dashInterviewList [data-dash-interview-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.swipe-row');
+      if (row?.classList.contains('is-open')) { _snapSwipeRow(row, false); return; }
+      goToInterview(btn.dataset.dashInterviewId);
+    });
+  });
+  $$('#dashInterviewList [data-dash-swipe-done]').forEach(btn => btn.addEventListener('click', async () => {
+    const id = btn.dataset.dashSwipeDone;
+    const row = btn.closest('.swipe-row');
+    const interview = state.dashboard.interviews.find(i => i.id === id);
+    if (!interview) return;
+    soundSave(); haptic();
+    const nowDone = !Number(interview.completed);
+    _snapSwipeRow(row, false);
+    interview.completed = nowDone ? 1 : 0;
+    interview.completed_at = nowDone ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null;
+    renderDashboard();
+    try {
+      await api(`/api/interviews/${id}`, { method: 'PUT', body: {
+        interviewee:    interview.interviewee,
+        scheduled_date: String(interview.scheduled_date || '').split(' ')[0] || null,
+        scheduled_time: interview.scheduled_time || null,
+        interviewer_id: interview.interviewer_id || null,
+        notes:          interview.notes || '',
+        completed:      nowDone ? 1 : 0,
+        work_area_id:   interview.work_area_id,
+      }});
+    } catch (_) { await loadDashboard(); }
+  }));
+  $$('#dashInterviewList [data-dash-del-interview]').forEach(btn => btn.addEventListener('click', () => {
+    const id = btn.dataset.dashDelInterview;
+    _swipeRowDelete(btn.closest('.swipe-row'), async () => {
+      state.dashboard.interviews = state.dashboard.interviews.filter(i => i.id !== id);
+      renderDashboard();
+      try { await api(`/api/interviews/${id}`, { method: 'DELETE' }); }
+      catch (_) { await loadDashboard(); }
+    });
+  }));
+}
+
+async function goToTask(taskId) {
+  const dash = state.dashboard.tasks.find(t => t.id === taskId);
+  if (!dash) return;
+  const area = state.areas.find(a => a.id === dash.work_area_id);
+  if (area) {
+    pickArea(area.id, area.name, area.unit_name || '');
+    await loadMembers();
+    await loadTasks();
+  }
+  showView('tasks');
+  const task = state.tasks.find(t => t.id === taskId);
+  if (task) openTaskDialog(task);
+}
+
+async function goToInterview(interviewId) {
+  const dash = state.dashboard.interviews.find(i => i.id === interviewId);
+  if (!dash) return;
+  const area = state.areas.find(a => a.id === dash.work_area_id);
+  if (area) {
+    pickArea(area.id, area.name, area.unit_name || '');
+    await loadInterviews();
+  }
+  showView('interviews');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function isPersonalArea() {
+  return !!(state.activeArea && Number(state.activeArea.is_personal) === 1);
+}
+
+function scopedTasks() {
+  if (!isPersonalArea() && state.myTasksOnly && currentUser) {
+    return state.tasks.filter(task => task.assigned_to === currentUser.id);
+  }
+  return state.tasks;
+}
+
 function renderTaskStats() {
-  const counts = state.tasks.reduce((acc, task) => {
+  const counts = scopedTasks().reduce((acc, task) => {
     acc[task.status] = (acc[task.status] || 0) + 1;
     return acc;
   }, {});
@@ -471,23 +1005,81 @@ function renderTaskStats() {
 function setTaskFilter(filter) {
   state.taskFilter = filter;
   $$('[data-task-filter]').forEach(button => button.classList.toggle('active', button.dataset.taskFilter === filter));
-  moveIndicator($('.task-tabs'), $('.tabs-indicator'), $('.task-tabs button.active'));
+  moveIndicator($('#tasksView .task-tabs'), $('#tasksView .tabs-indicator'), $('#tasksView .task-tabs button.active'));
   renderTasks();
 }
 
+const _TRASH_ICON  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+const _CHECK_ICON  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const _PLAY_ICON   = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>`;
+const _RESET_ICON  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`;
+
+const _NEXT_STATUS = { pending: 'in_progress', in_progress: 'done', done: 'pending' };
+const _STATUS_ACTION = {
+  in_progress: { label: 'En curso', bg: '#f59e0b', icon: _PLAY_ICON },
+  done:        { label: 'Hecha',    bg: '#10b981', icon: _CHECK_ICON },
+  pending:     { label: 'Pendiente',bg: '#6b7280', icon: _RESET_ICON },
+};
+
 function renderTasks() {
-  const tasks = state.tasks.filter(task => state.taskFilter === 'done'
+  const tasks = scopedTasks().filter(task => state.taskFilter === 'done'
     ? task.status === 'done'
     : ['pending', 'in_progress'].includes(task.status));
-  $('#taskList').innerHTML = tasks.map(task => `
-    <button class="item" data-task-id="${task.id}">
-      <header><strong>${escapeHtml(task.title)}</strong><span class="badge ${task.status === 'done' ? 'green' : task.status === 'in_progress' ? 'yellow' : ''}">${statusLabel(task.status)}</span></header>
-      <p>Inicio: ${formatDate(task.start_date)} · Vence: ${formatDate(task.due_date)}</p>
-      <div class="item-person">${avatarHtml(task.assigned_to_name)}<span>${escapeHtml(task.assigned_to_name || 'Sin responsable')}</span></div>
-    </button>
-  `).join('') || `<div class="item"><p>No hay tareas ${state.taskFilter === 'done' ? 'finalizadas' : 'pendientes'}.</p></div>`;
-  $$('#taskList [data-task-id]').forEach(button => button.addEventListener('click', () => {
-    openTaskDialog(state.tasks.find(task => task.id === button.dataset.taskId));
+  const container = $('#taskList');
+  if (!tasks.length) {
+    container.innerHTML = `<div class="item"><p>No hay tareas ${state.taskFilter === 'done' ? 'finalizadas' : 'pendientes'}.</p></div>`;
+    return;
+  }
+  container.innerHTML = tasks.map(task => {
+    const next = _NEXT_STATUS[task.status];
+    const action = _STATUS_ACTION[next];
+    return `
+    <div class="swipe-row">
+      <button class="swipe-left-action" data-swipe-status="${task.id}"
+        style="background:${action.bg}" data-action-bg="${action.bg}" aria-label="${action.label}">
+        ${action.icon}${action.label}
+      </button>
+      <button class="item${isTaskOverdue(task) ? ' task-overdue' : isTaskDueToday(task) ? ' task-today' : ''} swipe-card" data-task-id="${task.id}">
+        <header><strong>${escapeHtml(task.title)}</strong><span class="badge ${task.status === 'done' ? 'green' : task.status === 'in_progress' ? 'yellow' : ''}">${statusLabel(task.status)}</span></header>
+        <p>Inicio: ${formatDate(task.start_date)} · Vence: ${formatDate(task.due_date)}</p>
+        <div class="item-person">${avatarHtml(task.assigned_to_name)}<span>${escapeHtml(task.assigned_to_name || 'Sin responsable')}</span></div>
+      </button>
+      <button class="swipe-delete-action" data-swipe-task="${task.id}" aria-label="Borrar tarea">${_TRASH_ICON}Borrar</button>
+    </div>`;
+  }).join('');
+  $$('#taskList [data-task-id]').forEach(btn => btn.addEventListener('click', () => {
+    const row = btn.closest('.swipe-row');
+    if (row?.classList.contains('is-open')) { _snapSwipeRow(row, false); return; }
+    openTaskDialog(state.tasks.find(t => t.id === btn.dataset.taskId));
+  }));
+  $$('#taskList [data-swipe-task]').forEach(btn => btn.addEventListener('click', () => {
+    _swipeRowDelete(btn.closest('.swipe-row'), async () => {
+      await api(`/api/tasks/${btn.dataset.swipeTask}`, { method: 'DELETE' });
+      await loadTasks();
+    });
+  }));
+  $$('#taskList [data-swipe-status]').forEach(btn => btn.addEventListener('click', async () => {
+    const id  = btn.dataset.swipeStatus;
+    const row = btn.closest('.swipe-row');
+    const task = state.tasks.find(t => t.id === id);
+    if (!task) return;
+    soundSave(); haptic();
+    const nextStatus = _NEXT_STATUS[task.status];
+    _snapSwipeRow(row, false);
+    task.status = nextStatus;
+    renderTasks();
+    renderTaskStats();
+    try {
+      await api(`/api/tasks/${id}`, { method: 'PUT', body: {
+        title: task.title,
+        description: task.description || '',
+        status: nextStatus,
+        assigned_to: task.assigned_to || '',
+        start_date: String(task.start_date || '').split(' ')[0],
+        due_date: String(task.due_date || '').split(' ')[0],
+        work_area_id: task.work_area_id || state.activeAreaId,
+      }});
+    } catch (_) { await loadTasks(); }
   }));
 }
 
@@ -536,7 +1128,7 @@ function openTaskDialog(task = null) {
 
   $('#deleteTaskBtn').classList.toggle('hidden', !task);
   $('#saveNewTaskBtn').classList.toggle('hidden', !!task);
-  $('#taskDialog').showModal();
+  openModal($('#taskDialog'));
   if (!task) setTimeout(() => titleInput.focus(), 60);
 }
 
@@ -619,13 +1211,14 @@ async function closeTaskDialog() {
           work_area_id: state.activeAreaId,
         };
         await api('/api/tasks', { method: 'POST', body: data });
+        soundSave();
         await loadTasks();
       } catch (_) {}
     }
   }
   closeStatusOptions();
   closeResponsibleOptions();
-  $('#taskDialog').close();
+  closeModal($('#taskDialog'));
 }
 
 function autoResizeTextarea(el) {
@@ -738,6 +1331,64 @@ function commitDateEdit(field) {
   scheduleAutosave();
 }
 
+function setInterviewDateDisplay(field, rawValue) {
+  const isDate = field === 'date';
+  const display = isDate ? $('#interviewDateDisplay') : $('#interviewTimeDisplay');
+  const input   = isDate ? $('#interviewDate') : $('#interviewTime');
+  const clearBtn = isDate ? $('#interviewDateClear') : $('#interviewTimeClear');
+  const val = rawValue ? String(rawValue).split(' ')[0] : '';
+  input.value = val;
+  display.textContent = val ? (isDate ? formatDate(val) : val.slice(0, 5)) : (isDate ? 'Sin fecha' : 'Sin hora');
+  display.classList.toggle('no-date', !val);
+  display.classList.remove('hidden');
+  input.classList.add('hidden');
+  clearBtn.classList.toggle('hidden', !val);
+}
+
+function startInterviewDateEdit(field) {
+  const isDate = field === 'date';
+  const display = isDate ? $('#interviewDateDisplay') : $('#interviewTimeDisplay');
+  const input   = isDate ? $('#interviewDate') : $('#interviewTime');
+  display.classList.add('hidden');
+  input.classList.remove('hidden');
+  input.focus();
+}
+
+function commitInterviewDateEdit(field) {
+  const input = field === 'date' ? $('#interviewDate') : $('#interviewTime');
+  setInterviewDateDisplay(field, input.value);
+  scheduleInterviewAutosave();
+}
+
+function setMinInterviewDateDisplay(field, rawValue) {
+  const isDate = field === 'date';
+  const display = isDate ? $('#minInterviewDateDisplay') : $('#minInterviewTimeDisplay');
+  const input   = isDate ? $('#minInterviewDate') : $('#minInterviewTime');
+  const clearBtn = isDate ? $('#minInterviewDateClear') : $('#minInterviewTimeClear');
+  const val = rawValue ? String(rawValue).split(' ')[0] : '';
+  input.value = val;
+  display.textContent = val ? (isDate ? formatDate(val) : val.slice(0, 5)) : (isDate ? 'Sin fecha' : 'Sin hora');
+  display.classList.toggle('no-date', !val);
+  display.classList.remove('hidden');
+  input.classList.add('hidden');
+  clearBtn.classList.toggle('hidden', !val);
+}
+
+function startMinInterviewDateEdit(field) {
+  const isDate = field === 'date';
+  const display = isDate ? $('#minInterviewDateDisplay') : $('#minInterviewTimeDisplay');
+  const input   = isDate ? $('#minInterviewDate') : $('#minInterviewTime');
+  display.classList.add('hidden');
+  input.classList.remove('hidden');
+  input.focus();
+}
+
+function commitMinInterviewDateEdit(field) {
+  const input = field === 'date' ? $('#minInterviewDate') : $('#minInterviewTime');
+  setMinInterviewDateDisplay(field, input.value);
+  scheduleMinisteringAutosave();
+}
+
 async function saveTask(event) {
   event.preventDefault();
   if (!$('#taskTitleInput').classList.contains('hidden')) commitTitleEdit();
@@ -745,7 +1396,7 @@ async function saveTask(event) {
   const id = data.id;
   delete data.id;
   await api(id ? `/api/tasks/${id}` : '/api/tasks', { method: id ? 'PUT' : 'POST', body: data });
-  $('#taskDialog').close();
+  closeModal($('#taskDialog'));
   await loadTasks();
 }
 
@@ -760,7 +1411,8 @@ async function deleteTask() {
   });
   if (!confirmed) return;
   await api(`/api/tasks/${id}`, { method: 'DELETE' });
-  $('#taskDialog').close();
+  soundDelete();
+  closeModal($('#taskDialog'));
   await loadTasks();
 }
 
@@ -776,7 +1428,7 @@ function confirmDialog({ title = 'Confirmar', message = '', confirmLabel = 'Conf
       accept.removeEventListener('click', onAccept);
       cancel.removeEventListener('click', onCancel);
       dialog.removeEventListener('cancel', onDismiss);
-      dialog.close();
+      closeModal(dialog);
       resolve(result);
     }
     function onAccept() { settle(true); }
@@ -785,7 +1437,7 @@ function confirmDialog({ title = 'Confirmar', message = '', confirmLabel = 'Conf
     accept.addEventListener('click', onAccept);
     cancel.addEventListener('click', onCancel);
     dialog.addEventListener('cancel', onDismiss);
-    dialog.showModal();
+    openModal(dialog);
   });
 }
 
@@ -1162,11 +1814,20 @@ function formatDate(value) {
 }
 
 function compareTasks(a, b) {
-  return compareDateDesc(a.due_date, b.due_date)
-    || compareDateAsc(a.start_date, b.start_date)
-    || compareUnassignedFirst(a.assigned_to, b.assigned_to)
+  return compareDateAsc(a.due_date, b.due_date)
+    || compareDateDesc(a.start_date, b.start_date)
     || compareStatus(a.status, b.status)
     || String(b.created_at || '').localeCompare(String(a.created_at || ''));
+}
+
+function compareInterviews(a, b) {
+  const ad = a.scheduled_date, bd = b.scheduled_date;
+  if (!ad && !bd) return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+  if (!ad) return -1;
+  if (!bd) return 1;
+  const c = String(ad).localeCompare(String(bd));
+  if (c) return c;
+  return String(a.scheduled_time || '').localeCompare(String(b.scheduled_time || ''));
 }
 
 function compareDateDesc(a, b) {
@@ -1183,14 +1844,8 @@ function compareDateAsc(a, b) {
   return String(a).localeCompare(String(b));
 }
 
-function compareUnassignedFirst(a, b) {
-  if (!a && b) return -1;
-  if (a && !b) return 1;
-  return 0;
-}
-
 function compareStatus(a, b) {
-  const order = { in_progress: 1, pending: 2, done: 3 };
+  const order = { pending: 1, in_progress: 2, done: 3 };
   return (order[a] || 99) - (order[b] || 99);
 }
 
@@ -1216,31 +1871,75 @@ function renderInterviews() {
   if (state.myInterviewsOnly && currentUser) {
     list = list.filter(i => i.interviewer_id === currentUser.id);
   }
+  list.sort(compareInterviews);
   const container = $('#interviewList');
   if (!list.length) {
     container.innerHTML = `<div class="item"><p>No hay entrevistas ${state.interviewFilter === 'done' ? 'realizadas' : 'próximas'}.</p></div>`;
     return;
   }
+  const today = todayStr();
   container.innerHTML = list.map(interview => {
     const completed = Number(interview.completed);
     const badge = completed
       ? '<span class="badge green">Realizada</span>'
-      : (interview.interviewer_id ? '<span class="badge">Agendada</span>' : '<span class="badge yellow">Sin asignar</span>');
+      : (interview.scheduled_date ? '<span class="badge">Agendada</span>' : '<span class="badge yellow">Sin fecha</span>');
     const interviewerHtml = interview.interviewer_name
       ? `${avatarHtml(interview.interviewer_name)}<span>${escapeHtml(interview.interviewer_name)}</span>`
       : `<span style="color:var(--muted);font-size:13px">Sin entrevistador</span>`;
+    const isToday = !completed && interview.scheduled_date && String(interview.scheduled_date).split(' ')[0] === today;
+    const doneAction = completed
+      ? { label: 'Pendiente', bg: '#6b7280', icon: _RESET_ICON }
+      : { label: 'Realizada', bg: '#10b981', icon: _CHECK_ICON };
     return `
-      <button class="item" data-interview-id="${interview.id}">
-        <header><strong>${escapeHtml(interview.interviewee)}</strong>${badge}</header>
-        <p>${formatInterviewDate(interview.scheduled_date, interview.scheduled_time)}</p>
-        <div class="item-person">${interviewerHtml}</div>
-      </button>`;
+      <div class="swipe-row">
+        <button class="swipe-left-action" data-swipe-done="${interview.id}"
+          style="background:${doneAction.bg}" data-action-bg="${doneAction.bg}" aria-label="${doneAction.label}">
+          ${doneAction.icon}${doneAction.label}
+        </button>
+        <button class="item${isToday ? ' interview-today' : ''} swipe-card" data-interview-id="${interview.id}">
+          <header><strong>${escapeHtml(interview.interviewee)}</strong>${badge}</header>
+          <p>${formatInterviewDate(interview.scheduled_date, interview.scheduled_time)}</p>
+          <div class="item-person">${interviewerHtml}</div>
+        </button>
+        <button class="swipe-delete-action" data-swipe-interview="${interview.id}" aria-label="Borrar entrevista">${_TRASH_ICON}Borrar</button>
+      </div>`;
   }).join('');
   $$('#interviewList [data-interview-id]').forEach(btn => {
     btn.addEventListener('click', () => {
+      const row = btn.closest('.swipe-row');
+      if (row?.classList.contains('is-open')) { _snapSwipeRow(row, false); return; }
       openInterviewDialog(state.interviews.find(i => i.id === btn.dataset.interviewId));
     });
   });
+  $$('#interviewList [data-swipe-interview]').forEach(btn => btn.addEventListener('click', () => {
+    _swipeRowDelete(btn.closest('.swipe-row'), async () => {
+      await api(`/api/interviews/${btn.dataset.swipeInterview}`, { method: 'DELETE' });
+      await loadInterviews();
+    });
+  }));
+  $$('#interviewList [data-swipe-done]').forEach(btn => btn.addEventListener('click', async () => {
+    const id        = btn.dataset.swipeDone;
+    const row       = btn.closest('.swipe-row');
+    const interview = state.interviews.find(i => i.id === id);
+    if (!interview) return;
+    soundSave(); haptic();
+    const nowDone = !Number(interview.completed);
+    _snapSwipeRow(row, false);
+    interview.completed   = nowDone ? 1 : 0;
+    interview.completed_at = nowDone ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null;
+    renderInterviews();
+    try {
+      await api(`/api/interviews/${id}`, { method: 'PUT', body: {
+        interviewee:    interview.interviewee,
+        scheduled_date: String(interview.scheduled_date || '').split(' ')[0] || null,
+        scheduled_time: interview.scheduled_time || null,
+        interviewer_id: interview.interviewer_id || null,
+        notes:          interview.notes || '',
+        completed:      nowDone ? 1 : 0,
+        work_area_id:   interview.work_area_id || state.activeAreaId,
+      }});
+    } catch (_) { await loadInterviews(); }
+  }));
 }
 
 function formatInterviewDate(date, time) {
@@ -1293,11 +1992,10 @@ async function doInterviewAutosave() {
   const id = $('#interviewForm').elements.id.value;
   if (!id) return;
   const interviewee = $('#intervieweeName').value.trim();
-  const date = $('#interviewDate').value;
-  if (!interviewee || !date) return;
+  if (!interviewee) return;
   const data = {
     interviewee,
-    scheduled_date: date,
+    scheduled_date: $('#interviewDate').value || null,
     scheduled_time: $('#interviewTime').value || null,
     interviewer_id: $('#interviewerIdInput').value || null,
     notes: $('#interviewNotes').value,
@@ -1318,8 +2016,12 @@ function openInterviewDialog(interview = null) {
 
   form.elements.id.value = interview?.id || '';
   $('#intervieweeName').value = interview?.interviewee || '';
-  $('#interviewDate').value = interview?.scheduled_date ? String(interview.scheduled_date).split(' ')[0] : todayIso();
-  $('#interviewTime').value = interview?.scheduled_time ? interview.scheduled_time.slice(0, 5) : '';
+  const iDateVal = interview?.scheduled_date ? String(interview.scheduled_date).split(' ')[0] : '';
+  const iTimeVal = interview?.scheduled_time ? interview.scheduled_time.slice(0, 5) : '';
+  $('#interviewDate').value = iDateVal;
+  $('#interviewTime').value = iTimeVal;
+  setInterviewDateDisplay('date', iDateVal);
+  setInterviewDateDisplay('time', iTimeVal);
   $('#interviewNotes').value = interview?.notes || '';
   setTimeout(() => autoResizeTextarea($('#interviewNotes')), 0);
   $('#interviewCompletedCheck').checked = !!Number(interview?.completed);
@@ -1329,7 +2031,7 @@ function openInterviewDialog(interview = null) {
 
   $('#deleteInterviewBtn').classList.toggle('hidden', !interview);
   $('#saveNewInterviewBtn').classList.toggle('hidden', !!interview);
-  $('#interviewDialog').showModal();
+  openModal($('#interviewDialog'));
   if (!interview) setTimeout(() => $('#intervieweeName').focus(), 60);
 }
 
@@ -1339,26 +2041,26 @@ async function closeInterviewDialog() {
   const id = form.elements.id.value;
   if (!id) {
     const interviewee = $('#intervieweeName').value.trim();
-    const date = $('#interviewDate').value;
-    if (interviewee && date) {
+    if (interviewee) {
       try {
         await api('/api/interviews', {
           method: 'POST',
           body: {
             interviewee,
-            scheduled_date: date,
+            scheduled_date: $('#interviewDate').value || null,
             scheduled_time: $('#interviewTime').value || null,
             interviewer_id: $('#interviewerIdInput').value || null,
             notes: $('#interviewNotes').value,
             work_area_id: state.activeAreaId,
           },
         });
+        soundSave();
         await loadInterviews();
       } catch (_) {}
     }
   }
   closeInterviewerOptions();
-  $('#interviewDialog').close();
+  closeModal($('#interviewDialog'));
 }
 
 async function deleteInterview() {
@@ -1372,7 +2074,8 @@ async function deleteInterview() {
   });
   if (!confirmed) return;
   await api(`/api/interviews/${id}`, { method: 'DELETE' });
-  $('#interviewDialog').close();
+  soundDelete();
+  closeModal($('#interviewDialog'));
   await loadInterviews();
 }
 
@@ -1515,10 +2218,10 @@ function openPairDialog(pairId = null) {
   f.elements.minister2.value = pair?.minister2 ?? '';
   f.elements.assigned_to.value = pair?.assigned_to ?? '';
   $('#deletePairBtn').classList.toggle('hidden', !pair);
-  $('#pairDialog').showModal();
+  openModal($('#pairDialog'));
 }
 
-function closePairDialog() { $('#pairDialog').close(); }
+function closePairDialog() { closeModal($('#pairDialog')); }
 
 async function savePair() {
   const f = $('#pairForm');
@@ -1533,6 +2236,7 @@ async function savePair() {
     if (!id) {
       payload.work_area_id = state.activeAreaId;
       await api('/api/ministering/pairs', { method: 'POST', body: payload });
+      soundSave();
     } else {
       await api(`/api/ministering/pairs/${id}`, { method: 'PUT', body: payload });
     }
@@ -1556,6 +2260,7 @@ async function deletePair() {
   if (!ok) return;
   closePairDialog();
   await api(`/api/ministering/pairs/${id}`, { method: 'DELETE' });
+  soundDelete();
   await loadPairs();
 }
 
@@ -1567,8 +2272,12 @@ function openMinisteringInterview(pairId) {
   const f = $('#ministeringInterviewForm');
   f.elements.pair_id.value = pair.id;
   f.elements.quarter.value = state.pairQuarter;
-  f.elements.scheduled_date.value = pair.scheduled_date ?? '';
-  f.elements.scheduled_time.value = pair.scheduled_time ? pair.scheduled_time.slice(0, 5) : '';
+  const minDateVal = pair.scheduled_date ?? '';
+  const minTimeVal = pair.scheduled_time ? pair.scheduled_time.slice(0, 5) : '';
+  f.elements.scheduled_date.value = minDateVal;
+  f.elements.scheduled_time.value = minTimeVal;
+  setMinInterviewDateDisplay('date', minDateVal);
+  setMinInterviewDateDisplay('time', minTimeVal);
   f.elements.notes.value = pair.notes ?? '';
   f.elements.completed.checked = Number(pair.completed) === 1;
   const m2 = pair.minister2 ? ` · ${escapeHtml(pair.minister2)}` : '';
@@ -1579,13 +2288,13 @@ function openMinisteringInterview(pairId) {
   populateMinInterviewerOptions();
   pickMinInterviewer(pair.interviewer_id ?? '', pair.interviewer_name ?? '', false);
   autoResizeTextarea($('#minInterviewNotes'));
-  $('#ministeringInterviewDialog').showModal();
+  openModal($('#ministeringInterviewDialog'));
 }
 
 function closeMinisteringInterview() {
   clearTimeout(minInterviewTimer);
   doMinisteringAutosave();
-  $('#ministeringInterviewDialog').close();
+  closeModal($('#ministeringInterviewDialog'));
 }
 
 function scheduleMinisteringAutosave(immediate = false) {
@@ -1672,6 +2381,60 @@ async function loadAppVersion() {
     const label = new Date(ts * 1000).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     document.querySelectorAll('.app-version').forEach(el => el.textContent = label);
   } catch (_) {}
+}
+
+// ── Push Notifications ────────────────────────────────────────────────────────
+
+function _urlB64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + pad);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function initPush() {
+  if (!_vapidPublicKey) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (Notification.permission === 'denied') return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      if (Notification.permission !== 'granted') {
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') return;
+      }
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlB64ToUint8Array(_vapidPublicKey),
+      });
+    }
+    await _syncPushSub(sub);
+  } catch (_) {}
+}
+
+async function _syncPushSub(sub) {
+  const j = sub.toJSON();
+  try {
+    await api('/api/push-subscription', {
+      method: 'POST',
+      body: { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth },
+    });
+  } catch (_) {}
+}
+
+async function forceUpdate() {
+  const btn = $('#forceUpdateBtn');
+  btn.disabled = true;
+  btn.textContent = 'Actualizando…';
+  try {
+    await caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) await reg.update();
+    }
+  } finally {
+    window.location.reload();
+  }
 }
 
 function initIosInstallBanner() {

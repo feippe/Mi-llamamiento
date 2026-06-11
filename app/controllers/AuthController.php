@@ -64,7 +64,7 @@ class AuthController extends Controller
             $bootstrapApproved = $selfApproved > 0 || $service->bootstrapFirstStakePresidencyRequestForUser($user['id']);
             $user = $this->currentUser();
         }
-        $config = require APP_ROOT . '/app/config/config.php';
+        $config = require base_path('app/config/config.php');
         return [
             'user'              => $user,
             'csrf'              => Session::csrf(),

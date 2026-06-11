@@ -8,7 +8,7 @@ class PushService
 
     public function __construct(private readonly PDO $db)
     {
-        $config              = require APP_ROOT . '/app/config/config.php';
+        $config              = require base_path('app/config/config.php');
         $this->publicKey     = $config['vapid']['public_key'];
         $this->privateKeyPem = $config['vapid']['private_key_pem'];
         $this->subject       = $config['vapid']['subject'] ?? 'mailto:admin@localhost';

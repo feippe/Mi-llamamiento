@@ -44,16 +44,18 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('push', event => {
-  let data = { title: 'Mi Llamamiento', body: '' };
+  console.log('[SW] push event fired, has data:', !!(event.data));
+  let data = { title: 'Mi Llamamiento', body: 'test' };
   if (event.data) {
-    try { data = event.data.json(); } catch (_) {}
+    try { data = event.data.json(); console.log('[SW] parsed ok', data); }
+    catch (err) { console.log('[SW] parse error', err); }
   }
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/assets/icons/icon-192.png',
       badge: '/assets/icons/icon-192.png',
-    })
+    }).catch(err => console.log('[SW] showNotification error', err))
   );
 });
 

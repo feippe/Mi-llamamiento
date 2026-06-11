@@ -4,6 +4,7 @@ let canManageSettings = false;
 let adminCatalog = null;
 let _profileLoadedAt = 0;
 const _PROFILE_TTL = 5 * 60 * 1000;
+let _vapidPublicKey = null;
 
 let state = {
   units: [],
@@ -381,6 +382,7 @@ async function initSession() {
   const data = await api('/api/csrf');
   csrf = data.csrf;
   currentUser = data.user;
+  _vapidPublicKey = data.vapidPublicKey || null;
   if (currentUser) {
     await enterApp();
   } else {
@@ -434,6 +436,7 @@ async function enterApp() {
   $('#appShell').classList.remove('hidden');
   $('#userLabel').textContent = currentUser.name || currentUser.email;
   initIosInstallBanner();
+  initPush();
   const minWait = new Promise(r => setTimeout(r, 700));
   await loadProfile();
   await loadCatalogs();
@@ -2377,6 +2380,45 @@ async function loadAppVersion() {
     const ts = parseInt(await (await fetch('/version.php')).text(), 10);
     const label = new Date(ts * 1000).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     document.querySelectorAll('.app-version').forEach(el => el.textContent = label);
+  } catch (_) {}
+}
+
+// ── Push Notifications ────────────────────────────────────────────────────────
+
+function _urlB64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + pad);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function initPush() {
+  if (!_vapidPublicKey) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (Notification.permission === 'denied') return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      if (Notification.permission !== 'granted') {
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') return;
+      }
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlB64ToUint8Array(_vapidPublicKey),
+      });
+    }
+    await _syncPushSub(sub);
+  } catch (_) {}
+}
+
+async function _syncPushSub(sub) {
+  const j = sub.toJSON();
+  try {
+    await api('/api/push-subscription', {
+      method: 'POST',
+      body: { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth },
+    });
   } catch (_) {}
 }
 

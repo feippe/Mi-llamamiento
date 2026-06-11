@@ -16,7 +16,9 @@ require_once base_path('app/core/Session.php');
 require_once base_path('app/core/Controller.php');
 require_once base_path('app/core/Router.php');
 require_once base_path('app/services/AccessService.php');
+require_once base_path('app/services/PushService.php');
 require_once base_path('app/controllers/DashboardController.php');
+require_once base_path('app/controllers/PushController.php');
 require_once base_path('app/controllers/AuthController.php');
 require_once base_path('app/controllers/ProfileController.php');
 require_once base_path('app/controllers/CatalogController.php');
@@ -42,7 +44,9 @@ if (!str_starts_with(Request::path(), '/api')) {
 }
 
 $router = new Router();
-$router->add('GET', '/api/dashboard', [DashboardController::class, 'index']);
+$router->add('GET',    '/api/dashboard',          [DashboardController::class, 'index']);
+$router->add('POST',   '/api/push-subscription',  [PushController::class, 'subscribe']);
+$router->add('DELETE', '/api/push-subscription',  [PushController::class, 'unsubscribe']);
 $router->add('GET', '/api/csrf', [AuthController::class, 'csrf']);
 $router->add('POST', '/api/register', [AuthController::class, 'register']);
 $router->add('POST', '/api/login', [AuthController::class, 'login']);

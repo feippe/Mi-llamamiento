@@ -253,7 +253,6 @@ function wireEvents() {
   $('#callingForm').addEventListener('submit', requestCalling);
 
   $('#areaTag').addEventListener('click', e => { e.stopPropagation(); toggleAreaOptions(); });
-  $('#goToProfileBtn').addEventListener('click', () => showView('profile'));
   $('#saveNewTaskBtn').addEventListener('click', closeTaskDialog);
   $('#newTaskBtn').addEventListener('click', () => openTaskDialog());
   $$('[data-dash-tab]').forEach(button => button.addEventListener('click', () => setDashTab(button.dataset.dashTab)));

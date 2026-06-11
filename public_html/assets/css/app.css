@@ -274,6 +274,7 @@ input:focus, textarea:focus, select:focus {
   background: transparent;
   color: var(--muted);
   font-weight: 800;
+  font-size: 12px;
 }
 .task-tabs button.active { color: var(--primary); }
 .tabs-indicator {
@@ -866,7 +867,7 @@ dialog[open] { animation: dialogIn .4s var(--ease-spring) both; }
   min-height: unset;
   padding: 5px 14px;
   border-radius: var(--radius-pill);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   background: transparent;
   color: var(--muted);
@@ -882,7 +883,7 @@ dialog[open] { animation: dialogIn .4s var(--ease-spring) both; }
   white-space: nowrap;
 }
 .my-interviews-toggle span {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--muted);
   transition: color 0.2s;

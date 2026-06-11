@@ -1051,7 +1051,7 @@ input[type="date"], input[type="time"] { min-width: 0; }
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: #fff;
+  background: var(--primary);
   display: grid;
   place-items: center;
   transition: opacity .38s ease;
@@ -1062,14 +1062,14 @@ input[type="date"], input[type="time"] { min-width: 0; }
   width: 88px;
   height: 88px;
   border-radius: 22px;
-  box-shadow: 0 12px 32px rgba(30, 58, 138, .22);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .30);
   animation: splashLogoIn .55s var(--ease-spring, cubic-bezier(.34,1.56,.64,1)) both;
 }
 .splash-name {
   margin-top: 18px;
   font-size: 20px;
   font-weight: 800;
-  color: var(--primary);
+  color: #fff;
   letter-spacing: -.01em;
   animation: splashFadeUp .5s var(--ease) .15s both;
 }
@@ -1084,7 +1084,7 @@ input[type="date"], input[type="time"] { min-width: 0; }
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--primary);
+  background: rgba(255, 255, 255, .7);
   animation: splashDot .85s ease-in-out infinite;
 }
 .splash-dots span:nth-child(2) { animation-delay: .14s; }

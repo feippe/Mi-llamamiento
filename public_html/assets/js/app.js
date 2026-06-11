@@ -339,13 +339,13 @@ function wireEvents() {
   $('#minInterviewCompletedCheck').addEventListener('change', () => scheduleMinisteringAutosave(true));
 
   const NAV_SELECTOR = '[data-nav]';
-  const TAP_SELECTORS = '[data-dash-tab], [data-task-filter], [data-interview-tab], [data-interview-filter], [data-min-filter]';
+  const TAP_SELECTORS = '[data-dash-tab], [data-task-filter], [data-interview-tab], [data-interview-filter], [data-min-filter], #prevQuarterBtn, #nextQuarterBtn';
   document.addEventListener('touchstart', e => {
-    if (e.target.closest(NAV_SELECTOR)) { haptic(); soundNav(); }
+    if (e.target.closest(NAV_SELECTOR)) { haptic(); }
     else if (e.target.closest(TAP_SELECTORS)) { haptic(); soundTap(); }
   }, { passive: true });
   document.addEventListener('change', e => {
-    if (e.target.matches('input[type="checkbox"]')) { haptic(); soundToggle(); }
+    if (e.target.matches('input[type="checkbox"]')) { haptic(); soundTap(); }
   });
 
   _attachSwipe($('#taskList'));

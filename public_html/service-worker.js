@@ -1,4 +1,4 @@
-const CACHE = 'mi-llamamiento-mvp-v22';
+const CACHE = 'mi-llamamiento-mvp-v23';
 const SHELL = [
   '/',
   '/app.html',

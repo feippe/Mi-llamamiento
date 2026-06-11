@@ -75,16 +75,25 @@ function soundDelete() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Swipe-to-delete ──────────────────────────────────────────────────────────
-const _SWIPE_W = 76;   // delete button width (px)
-const _SWIPE_AT = 52;  // drag threshold to snap open (px)
+const _SWIPE_W = 160;  // delete button width — also the slide distance (px)
+const _SWIPE_AT = 72;  // drag threshold to snap open (px)
 let _openSwipeRow = null;
 let _swipeG = null;    // active gesture state
 
+function _swipeTx(row, x) {
+  const card = row.querySelector('.swipe-card');
+  const del  = row.querySelector('.swipe-delete-action');
+  if (card) card.style.transform = `translateX(${x}px)`;
+  if (del)  del.style.transform  = `translateX(${x}px)`;
+}
+
 function _snapSwipeRow(row, open) {
   const card = row.querySelector('.swipe-card');
-  if (!card) return;
-  card.style.transition = 'transform 0.22s cubic-bezier(.25,.46,.45,.94)';
-  card.style.transform = open ? `translateX(-${_SWIPE_W}px)` : 'translateX(0)';
+  const del  = row.querySelector('.swipe-delete-action');
+  const ease = 'transform 0.22s cubic-bezier(.25,.46,.45,.94)';
+  if (card) { card.style.transition = ease; }
+  if (del)  { del.style.transition  = ease; }
+  _swipeTx(row, open ? -_SWIPE_W : 0);
   row.classList.toggle('is-open', open);
   if (open) _openSwipeRow = row;
   else if (_openSwipeRow === row) _openSwipeRow = null;
@@ -98,13 +107,13 @@ function _swipeRowDelete(row, apiFn) {
   if (_openSwipeRow === row) _openSwipeRow = null;
   soundDelete(); haptic();
   const card = row.querySelector('.swipe-card');
+  const del  = row.querySelector('.swipe-delete-action');
   const h = row.offsetHeight;
   row.style.maxHeight = h + 'px';
   row.style.overflow = 'hidden';
-  if (card) {
-    card.style.transition = 'transform 0.18s ease-in';
-    card.style.transform = 'translateX(-120%)';
-  }
+  const exitTx = 'transform 0.18s ease-in';
+  if (card) { card.style.transition = exitTx; card.style.transform = 'translateX(-120%)'; }
+  if (del)  { del.style.transition  = exitTx; del.style.transform  = 'translateX(-120%)'; }
   setTimeout(() => {
     row.style.transition = 'max-height 0.28s ease, opacity 0.2s ease';
     row.style.maxHeight = '0';
@@ -120,8 +129,11 @@ function _attachSwipe(container) {
     if (e.target.closest('.swipe-delete-action')) return;
     if (_openSwipeRow && _openSwipeRow !== row) _snapSwipeRow(_openSwipeRow, false);
     const t = e.touches[0];
-    _swipeG = { row, card: row.querySelector('.swipe-card'), startX: t.clientX, startY: t.clientY, dir: null, moved: false, wasOpen: row.classList.contains('is-open') };
-    if (_swipeG.card) _swipeG.card.style.transition = 'none';
+    const card = row.querySelector('.swipe-card');
+    const del  = row.querySelector('.swipe-delete-action');
+    _swipeG = { row, card, del, startX: t.clientX, startY: t.clientY, dir: null, moved: false, wasOpen: row.classList.contains('is-open') };
+    if (card) card.style.transition = 'none';
+    if (del)  del.style.transition  = 'none';
   }, { passive: true });
 
   container.addEventListener('touchmove', e => {
@@ -138,7 +150,7 @@ function _attachSwipe(container) {
     _swipeG.moved = true;
     const base = _swipeG.wasOpen ? -_SWIPE_W : 0;
     const clamped = Math.max(-_SWIPE_W, Math.min(0, base + dx));
-    _swipeG.card.style.transform = `translateX(${clamped}px)`;
+    _swipeTx(_swipeG.row, clamped);
   }, { passive: false });
 
   const onEnd = () => {

@@ -373,6 +373,7 @@ input:focus, textarea:focus, select:focus {
   animation: none;
   position: relative;
   z-index: 1;
+  border-radius: 0;
   will-change: transform;
 }
 .swipe-row > .item:hover { transform: none; box-shadow: var(--shadow-sm); }

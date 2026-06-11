@@ -783,6 +783,11 @@ function isTaskOverdue(t) {
   return daysFromToday(String(t.due_date).split(' ')[0]) < 0;
 }
 
+function isTaskDueToday(t) {
+  if (!t.due_date || t.status === 'done') return false;
+  return daysFromToday(String(t.due_date).split(' ')[0]) === 0;
+}
+
 function renderDashTasks() {
   const sorted = [...state.dashboard.tasks].filter(t => t.status !== 'done').sort(compareTasks);
   const container = $('#dashTaskList');
@@ -799,7 +804,7 @@ function renderDashTasks() {
         style="background:${action.bg}" data-action-bg="${action.bg}" aria-label="${action.label}">
         ${action.icon}${action.label}
       </button>
-      <button class="item${isTaskOverdue(t) ? ' task-overdue' : ''} swipe-card" data-dash-task-id="${t.id}">
+      <button class="item${isTaskOverdue(t) ? ' task-overdue' : isTaskDueToday(t) ? ' task-today' : ''} swipe-card" data-dash-task-id="${t.id}">
         <header>
           <strong>${escapeHtml(t.title)}</strong>
           <span class="badge ${t.status === 'in_progress' ? 'yellow' : ''}">${statusLabel(t.status)}</span>
@@ -990,7 +995,7 @@ function renderTasks() {
         style="background:${action.bg}" data-action-bg="${action.bg}" aria-label="${action.label}">
         ${action.icon}${action.label}
       </button>
-      <button class="item${isTaskOverdue(task) ? ' task-overdue' : ''} swipe-card" data-task-id="${task.id}">
+      <button class="item${isTaskOverdue(task) ? ' task-overdue' : isTaskDueToday(task) ? ' task-today' : ''} swipe-card" data-task-id="${task.id}">
         <header><strong>${escapeHtml(task.title)}</strong><span class="badge ${task.status === 'done' ? 'green' : task.status === 'in_progress' ? 'yellow' : ''}">${statusLabel(task.status)}</span></header>
         <p>Inicio: ${formatDate(task.start_date)} · Vence: ${formatDate(task.due_date)}</p>
         <div class="item-person">${avatarHtml(task.assigned_to_name)}<span>${escapeHtml(task.assigned_to_name || 'Sin responsable')}</span></div>

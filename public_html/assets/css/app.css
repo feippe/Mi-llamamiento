@@ -322,6 +322,18 @@ input:focus, textarea:focus, select:focus {
   0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, .28); }
   50% { box-shadow: 0 0 16px 2px rgba(79, 70, 229, .30); }
 }
+.item.task-today {
+  background:
+    linear-gradient(white, white) padding-box,
+    linear-gradient(120deg, #f59e0b, #fbbf24, #f59e0b) border-box;
+  border: 1.5px solid transparent;
+  animation: riseIn .45s var(--ease) both, taskTodayPulse 2.2s ease-in-out infinite;
+}
+.item.task-today strong { color: #92400e; }
+@keyframes taskTodayPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, .28); }
+  50% { box-shadow: 0 0 16px 2px rgba(245, 158, 11, .30); }
+}
 .item.task-overdue {
   position: relative;
   border-color: rgba(220, 38, 38, .35);
@@ -358,6 +370,7 @@ input:focus, textarea:focus, select:focus {
 
 @media (prefers-reduced-motion: reduce) {
   .item.interview-today { animation: riseIn .45s var(--ease) both; }
+  .item.task-today { animation: riseIn .45s var(--ease) both; box-shadow: 0 4px 16px -4px rgba(245, 158, 11, .35); }
   .item.task-overdue { animation: riseIn .45s var(--ease) both; box-shadow: 0 4px 16px -4px rgba(220, 38, 38, .4); }
   .item.task-overdue::before { animation: none; opacity: 1; }
 }
@@ -379,11 +392,13 @@ input:focus, textarea:focus, select:focus {
 .swipe-row.is-open { background: #ef4444; }
 .swipe-row > .item:hover { transform: none; box-shadow: var(--shadow-sm); }
 .swipe-row > .item.interview-today { animation: todayPulse 2.2s ease-in-out infinite; }
+.swipe-row > .item.task-today { animation: taskTodayPulse 2.2s ease-in-out infinite; }
 .swipe-row > .item.task-overdue { animation: overduePulse 2.2s ease-in-out infinite; }
 .swipe-row > .item.task-overdue::before { animation: overdueBar 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .swipe-row { animation: none; }
   .swipe-row > .item.interview-today { animation: none; }
+  .swipe-row > .item.task-today { animation: none; box-shadow: 0 4px 16px -4px rgba(245, 158, 11, .35); }
   .swipe-row > .item.task-overdue { animation: none; box-shadow: 0 4px 16px -4px rgba(220, 38, 38, .4); }
   .swipe-row > .item.task-overdue::before { animation: none; opacity: 1; }
 }

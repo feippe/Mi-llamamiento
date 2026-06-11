@@ -456,8 +456,11 @@ function toggleAuth(mode) {
   $('#registerForm').classList.toggle('hidden', mode !== 'register');
 }
 
+const _VIEW_TITLES = { dashboard: 'Inicio', tasks: 'Tareas', interviews: 'Entrevistas', profile: 'Perfil', settings: 'Ajustes' };
+
 async function showView(view) {
   state.activeView = view;
+  $('#appTitle').textContent = _VIEW_TITLES[view] || 'Mi Llamamiento';
   $$('.view').forEach(section => section.classList.remove('active-view'));
   $(`#${view}View`).classList.add('active-view');
   $$('[data-nav]').forEach(button => button.classList.toggle('active', button.dataset.nav === view));
@@ -822,6 +825,7 @@ function renderDashTasks() {
         </div>
         <span class="dash-item-area">${escapeHtml(t.area_name)}${t.unit_name ? ' · ' + escapeHtml(t.unit_name) : ''}</span>
       </button>
+      <button class="swipe-delete-action" data-dash-del-task="${t.id}" aria-label="Borrar tarea">${_TRASH_ICON}Borrar</button>
     </div>`;
   }).join('');
   $$('#dashTaskList [data-dash-task-id]').forEach(btn => {
@@ -853,6 +857,15 @@ function renderDashTasks() {
       }});
     } catch (_) { await loadDashboard(); }
   }));
+  $$('#dashTaskList [data-dash-del-task]').forEach(btn => btn.addEventListener('click', () => {
+    const id = btn.dataset.dashDelTask;
+    _swipeRowDelete(btn.closest('.swipe-row'), async () => {
+      state.dashboard.tasks = state.dashboard.tasks.filter(t => t.id !== id);
+      renderDashboard();
+      try { await api(`/api/tasks/${id}`, { method: 'DELETE' }); }
+      catch (_) { await loadDashboard(); }
+    });
+  }));
 }
 
 function renderDashInterviews() {
@@ -883,6 +896,7 @@ function renderDashInterviews() {
         <p>${formatInterviewDate(i.scheduled_date, i.scheduled_time)}</p>
         <span class="dash-item-area">${escapeHtml(i.area_name)}${i.unit_name ? ' · ' + escapeHtml(i.unit_name) : ''}</span>
       </button>
+      <button class="swipe-delete-action" data-dash-del-interview="${i.id}" aria-label="Borrar entrevista">${_TRASH_ICON}Borrar</button>
     </div>`;
   }).join('');
   $$('#dashInterviewList [data-dash-interview-id]').forEach(btn => {
@@ -914,6 +928,15 @@ function renderDashInterviews() {
         work_area_id:   interview.work_area_id,
       }});
     } catch (_) { await loadDashboard(); }
+  }));
+  $$('#dashInterviewList [data-dash-del-interview]').forEach(btn => btn.addEventListener('click', () => {
+    const id = btn.dataset.dashDelInterview;
+    _swipeRowDelete(btn.closest('.swipe-row'), async () => {
+      state.dashboard.interviews = state.dashboard.interviews.filter(i => i.id !== id);
+      renderDashboard();
+      try { await api(`/api/interviews/${id}`, { method: 'DELETE' }); }
+      catch (_) { await loadDashboard(); }
+    });
   }));
 }
 

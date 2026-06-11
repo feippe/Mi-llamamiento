@@ -1,6 +1,6 @@
 {
   "name": "Mi Llamamiento",
-  "short_name": "Llamamiento",
+  "short_name": "Mi Llamamiento",
   "description": "Gestiona tus tareas y compromisos personales",
   "lang": "es",
   "start_url": "/",

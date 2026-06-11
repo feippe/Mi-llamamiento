@@ -200,6 +200,7 @@ function hideLoader() { $('#contentLoader')?.classList.add('hidden'); }
 
 let _modalCount = 0;
 function openModal(el) {
+  if (el.open) return;
   _closeOpenSwipeRow();
   if (++_modalCount === 1) document.documentElement.classList.add('modal-open');
   soundOpen();

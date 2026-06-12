@@ -146,7 +146,8 @@ input:focus, textarea:focus, select:focus {
   padding-top: env(safe-area-inset-top, 0px);
 }
 .topbar {
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
   z-index: 60;
   display: flex;
   justify-content: space-between;

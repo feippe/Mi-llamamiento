@@ -15,14 +15,17 @@ return [
         // Si se omite, se deriva del host de la petición.
         'url' => 'https://millamamiento.feippe.com',
     ],
-    // SMTP para la recuperación de contraseña.
+    // SMTP para la recuperación de contraseña (iCloud Mail).
+    // La contraseña debe ser una "contraseña específica para app" generada
+    // en appleid.apple.com. El 'from' debe ser tu dirección de iCloud (o un
+    // alias verificado en iCloud); no puede ser un dominio arbitrario.
     'mail' => [
-        'host'       => 'smtp.tu-proveedor.com',
+        'host'       => 'smtp.mail.me.com',
         'port'       => 587,
-        'encryption' => 'tls', // 'tls' (587), 'ssl' (465) o '' (sin cifrado)
-        'username'   => 'tu-usuario-smtp',
-        'password'   => 'tu-password-smtp',
-        'from'       => 'noreply@millamamiento.feippe.com',
+        'encryption' => 'tls',
+        'username'   => 'tu-correo@icloud.com',
+        'password'   => 'xxxx-xxxx-xxxx-xxxx', // contraseña específica para app
+        'from'       => 'tu-correo@icloud.com',
         'from_name'  => 'Mi Llamamiento',
     ],
 ];

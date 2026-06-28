@@ -5,6 +5,7 @@ let adminCatalog = null;
 let _profileLoadedAt = 0;
 const _PROFILE_TTL = 5 * 60 * 1000;
 let _vapidPublicKey = null;
+let _resetToken = null;
 
 let state = {
   units: [],
@@ -236,8 +237,13 @@ function wireEvents() {
   $('#forceUpdateBtn').addEventListener('click', forceUpdate);
   $('#showRegister').addEventListener('click', () => toggleAuth('register'));
   $('#showLogin').addEventListener('click', () => toggleAuth('login'));
+  $('#showForgot').addEventListener('click', () => toggleAuth('forgot'));
+  $('#forgotBackToLogin').addEventListener('click', () => toggleAuth('login'));
+  $('#resetBackToLogin').addEventListener('click', () => { clearResetParam(); toggleAuth('login'); });
   $('#loginForm').addEventListener('submit', login);
   $('#registerForm').addEventListener('submit', register);
+  $('#forgotForm').addEventListener('submit', forgotPassword);
+  $('#resetForm').addEventListener('submit', resetPassword);
   $('#logoutBtn').addEventListener('click', logout);
   $('#iosInstallBannerClose').addEventListener('click', () => {
     localStorage.setItem('iosInstallDismissed', '1');
@@ -383,6 +389,14 @@ async function initSession() {
   csrf = data.csrf;
   currentUser = data.user;
   _vapidPublicKey = data.vapidPublicKey || null;
+  _resetToken = new URLSearchParams(window.location.search).get('reset');
+  if (_resetToken) {
+    $('#appShell').classList.add('hidden');
+    $('#authView').classList.remove('hidden');
+    toggleAuth('reset');
+    hideSplash();
+    return;
+  }
   if (currentUser) {
     await enterApp();
   } else {
@@ -413,6 +427,37 @@ async function register(event) {
     await enterApp();
   } catch (error) {
     $('#registerStatus').textContent = error.message;
+  }
+}
+
+async function forgotPassword(event) {
+  event.preventDefault();
+  $('#forgotStatus').textContent = 'Enviando...';
+  try {
+    await api('/api/forgot-password', { method: 'POST', body: formData(event.currentTarget) });
+    $('#forgotStatus').textContent = 'Si el email está registrado, te enviamos un enlace para restablecer tu contraseña. Revisa tu correo.';
+    event.currentTarget.reset();
+  } catch (error) {
+    $('#forgotStatus').textContent = error.message;
+  }
+}
+
+async function resetPassword(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (data.password !== data.password2) {
+    $('#resetStatus').textContent = 'Las contraseñas no coinciden.';
+    return;
+  }
+  $('#resetStatus').textContent = 'Guardando...';
+  try {
+    const result = await api('/api/reset-password', { method: 'POST', body: { token: _resetToken, password: data.password } });
+    clearResetParam();
+    csrf = result.csrf;
+    currentUser = result.user;
+    await enterApp();
+  } catch (error) {
+    $('#resetStatus').textContent = error.message;
   }
 }
 
@@ -458,6 +503,15 @@ function showAuth() {
 function toggleAuth(mode) {
   $('#loginForm').classList.toggle('hidden', mode !== 'login');
   $('#registerForm').classList.toggle('hidden', mode !== 'register');
+  $('#forgotForm').classList.toggle('hidden', mode !== 'forgot');
+  $('#resetForm').classList.toggle('hidden', mode !== 'reset');
+}
+
+function clearResetParam() {
+  _resetToken = null;
+  const url = new URL(window.location.href);
+  url.searchParams.delete('reset');
+  window.history.replaceState({}, '', url.pathname + url.search + url.hash);
 }
 
 const _VIEW_TITLES = { dashboard: 'Inicio', tasks: 'Tareas', interviews: 'Entrevistas', profile: 'Perfil', settings: 'Ajustes' };

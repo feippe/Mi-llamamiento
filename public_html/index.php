@@ -17,6 +17,7 @@ require_once base_path('app/core/Controller.php');
 require_once base_path('app/core/Router.php');
 require_once base_path('app/services/AccessService.php');
 require_once base_path('app/services/PushService.php');
+require_once base_path('app/services/MailService.php');
 require_once base_path('app/controllers/DashboardController.php');
 require_once base_path('app/controllers/PushController.php');
 require_once base_path('app/controllers/AuthController.php');
@@ -51,6 +52,8 @@ $router->add('GET', '/api/csrf', [AuthController::class, 'csrf']);
 $router->add('POST', '/api/register', [AuthController::class, 'register']);
 $router->add('POST', '/api/login', [AuthController::class, 'login']);
 $router->add('POST', '/api/logout', [AuthController::class, 'logout']);
+$router->add('POST', '/api/forgot-password', [AuthController::class, 'forgotPassword']);
+$router->add('POST', '/api/reset-password', [AuthController::class, 'resetPassword']);
 $router->add('GET', '/api/profile', [ProfileController::class, 'show']);
 $router->add('PUT', '/api/profile', [ProfileController::class, 'update']);
 

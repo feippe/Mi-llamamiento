@@ -21,6 +21,18 @@ $config = [
         'private_key_pem' => "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgUZ0pH7YHxALkOSgm\nrhgfjf2aZ5e4Hz/GcA7DUJOPE0uhRANCAAS0yi144hmkz0ae05qp6ZPJHefGE6Bs\n9wiDCYek10oM6D2iupSJzYW/qHhqUZUwerOdenoKuDSwALw34NmgqbrZ\n-----END PRIVATE KEY-----\n",
         'subject'        => 'mailto:admin@millamamiento.com',
     ],
+    // SMTP para correos transaccionales (recuperación de contraseña).
+    // Configura las credenciales reales en app/config/local.php
+    'mail' => [
+        'host'       => '',
+        'port'       => 587,
+        'encryption' => 'tls', // 'tls' (STARTTLS/587), 'ssl' (465) o '' (sin cifrado)
+        'username'   => '',
+        'password'   => '',
+        'from'       => 'noreply@millamamiento.feippe.com',
+        'from_name'  => 'Mi Llamamiento',
+        'timeout'    => 15,
+    ],
 ];
 
 $local = __DIR__ . '/local.php';

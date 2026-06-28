@@ -35,8 +35,30 @@
         <label>Email<input name="email" type="email" required autocomplete="email"></label>
         <label>Contraseña<input name="password" type="password" required autocomplete="current-password"></label>
         <button type="submit" class="primary">Entrar</button>
+        <button id="showForgot" type="button" class="link">¿Olvidaste tu contraseña?</button>
         <button id="showRegister" type="button" class="link">¿Aún no tienes usuario?</button>
         <span id="loginStatus" class="status"></span>
+      </form>
+
+      <form id="forgotForm" class="auth-card hidden">
+        <img class="brand-mark" src="/assets/icons/logo.svg" alt="Mi Llamamiento">
+        <h1>Recuperar contraseña</h1>
+        <p>Ingresa tu email y te enviaremos un enlace para restablecerla.</p>
+        <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        <button type="submit" class="primary">Enviar enlace</button>
+        <button id="forgotBackToLogin" type="button" class="link">Volver a iniciar sesión</button>
+        <span id="forgotStatus" class="status"></span>
+      </form>
+
+      <form id="resetForm" class="auth-card hidden">
+        <img class="brand-mark" src="/assets/icons/logo.svg" alt="Mi Llamamiento">
+        <h1>Nueva contraseña</h1>
+        <p>Elige una contraseña nueva para tu cuenta.</p>
+        <label>Nueva contraseña<input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label>Confirmar contraseña<input name="password2" type="password" required minlength="8" autocomplete="new-password"></label>
+        <button type="submit" class="primary">Guardar contraseña</button>
+        <button id="resetBackToLogin" type="button" class="link">Volver a iniciar sesión</button>
+        <span id="resetStatus" class="status"></span>
       </form>
 
       <form id="registerForm" class="auth-card hidden">

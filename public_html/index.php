@@ -33,8 +33,19 @@ require_once base_path('app/controllers/MinisteringController.php');
 require_once base_path('app/controllers/AdminController.php');
 
 set_exception_handler(function (Throwable $e) {
-    $config = require base_path('app/config/config.php');
-    $message = $config['app']['env'] === 'development' ? $e->getMessage() : 'Error interno.';
+    // No volver a depender de la config aquí: si el fallo original es una
+    // config/local.php inválida, re-leerla relanzaría dentro del handler y
+    // daría pantalla en blanco. Intentamos leer env de forma segura.
+    $env = 'production';
+    try {
+        $config = require base_path('app/config/config.php');
+        $env = $config['app']['env'] ?? 'production';
+    } catch (\Throwable $_) {
+        // La config en sí está rota (p.ej. local.php con error de sintaxis):
+        // mostramos el detalle para poder diagnosticar.
+        $env = 'development';
+    }
+    $message = $env === 'development' ? $e->getMessage() : 'Error interno.';
     Response::error('SERVER_ERROR', $message, 500);
 });
 

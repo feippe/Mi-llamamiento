@@ -15,6 +15,7 @@ require_once base_path('app/core/Response.php');
 require_once base_path('app/core/Session.php');
 require_once base_path('app/core/Controller.php');
 require_once base_path('app/core/Router.php');
+require_once base_path('app/core/Migrator.php');
 require_once base_path('app/services/AccessService.php');
 require_once base_path('app/services/PushService.php');
 require_once base_path('app/services/MailService.php');
@@ -38,6 +39,7 @@ set_exception_handler(function (Throwable $e) {
 });
 
 Session::start();
+Migrator::run();
 
 if (!str_starts_with(Request::path(), '/api')) {
     require __DIR__ . '/app.html';

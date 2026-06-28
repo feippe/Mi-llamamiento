@@ -1,5 +1,5 @@
 -- Tabla para los tokens de recuperación de contraseña.
--- Ejecutar en producción: mysql -u USER -p mi_llamamiento < database/migrate_password_reset_tokens.sql
+-- Se aplica automáticamente al arrancar (app/core/Migrator.php).
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id CHAR(36) PRIMARY KEY,

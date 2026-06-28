@@ -8,6 +8,7 @@
 class MailService
 {
     private array $cfg;
+    private ?string $lastError = null;
 
     public function __construct()
     {
@@ -18,6 +19,12 @@ class MailService
     public function isConfigured(): bool
     {
         return !empty($this->cfg['host']) && !empty($this->cfg['from']);
+    }
+
+    /** Último error de SMTP (para diagnóstico). null si el último envío fue OK. */
+    public function lastError(): ?string
+    {
+        return $this->lastError;
     }
 
     // ── Plantillas ─────────────────────────────────────────────────────────────
@@ -48,13 +55,16 @@ class MailService
 
     public function send(string $toEmail, string $toName, string $subject, string $html, string $text): bool
     {
+        $this->lastError = null;
         if (!$this->isConfigured()) {
-            error_log('MailService: SMTP no configurado; no se envió email a ' . $toEmail);
+            $this->lastError = 'SMTP no configurado (falta host o from en config[mail]).';
+            error_log('MailService: ' . $this->lastError . ' Destino: ' . $toEmail);
             return false;
         }
         try {
             return $this->smtpSend($toEmail, $toName, $subject, $html, $text);
         } catch (\Throwable $e) {
+            $this->lastError = $e->getMessage();
             error_log('MailService: fallo al enviar a ' . $toEmail . ': ' . $e->getMessage());
             return false;
         }

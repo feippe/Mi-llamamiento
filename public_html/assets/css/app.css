@@ -144,24 +144,9 @@ input:focus, textarea:focus, select:focus {
   height: 100vh;
   height: 100dvh;
 }
-/* Franja esmerilada bajo la barra de estado (notch): mantiene limpio el
-   borde superior al hacer scroll sin estirar la tarjeta del header. */
-.app-shell::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: calc(env(safe-area-inset-top, 0px) + 10px);
-  z-index: 58;
-  background: rgba(238, 242, 251, .6);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  pointer-events: none;
-}
 .topbar {
   position: sticky;
-  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  top: calc(env(safe-area-inset-top, 0px) + 6px);
   z-index: 60;
   display: flex;
   justify-content: space-between;
@@ -189,7 +174,7 @@ input:focus, textarea:focus, select:focus {
   align-self: center;
   width: 100%;
   max-width: 1120px;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px calc(104px + env(safe-area-inset-bottom, 0px));
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 14px calc(104px + env(safe-area-inset-bottom, 0px));
 }
 
 .bottom-nav {
@@ -1084,7 +1069,7 @@ input[type="date"], input[type="time"] { min-width: 0; }
 .bottom-nav.nav-3col { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 @media (min-width: 760px) {
-  .content { padding: calc(env(safe-area-inset-top, 0px) + 10px) 22px calc(118px + env(safe-area-inset-bottom, 0px)); }
+  .content { padding: calc(env(safe-area-inset-top, 0px) + 6px) 22px calc(118px + env(safe-area-inset-bottom, 0px)); }
   #sharedAreaCard { max-width: 860px; margin: 0 auto; width: 100%; }
   #tasksView, #interviewsView { grid-template-columns: 1fr; max-width: 860px; margin: 0 auto; width: 100%; }
   #profileView, #settingsView { grid-template-columns: 1fr; max-width: 860px; margin: 0 auto; width: 100%; }

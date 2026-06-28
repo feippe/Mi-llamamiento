@@ -146,7 +146,7 @@ input:focus, textarea:focus, select:focus {
 }
 .topbar {
   position: sticky;
-  top: max(env(safe-area-inset-top, 0px) - 34px, 6px);
+  top: max(env(safe-area-inset-top, 0px) - 28px, 6px);
   z-index: 60;
   display: flex;
   justify-content: space-between;
@@ -174,7 +174,7 @@ input:focus, textarea:focus, select:focus {
   align-self: center;
   width: 100%;
   max-width: 1120px;
-  padding: max(env(safe-area-inset-top, 0px) - 34px, 6px) 14px calc(104px + env(safe-area-inset-bottom, 0px));
+  padding: max(env(safe-area-inset-top, 0px) - 28px, 6px) 14px calc(104px + env(safe-area-inset-bottom, 0px));
 }
 
 .bottom-nav {
@@ -1069,7 +1069,7 @@ input[type="date"], input[type="time"] { min-width: 0; }
 .bottom-nav.nav-3col { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 @media (min-width: 760px) {
-  .content { padding: max(env(safe-area-inset-top, 0px) - 34px, 6px) 22px calc(118px + env(safe-area-inset-bottom, 0px)); }
+  .content { padding: max(env(safe-area-inset-top, 0px) - 28px, 6px) 22px calc(118px + env(safe-area-inset-bottom, 0px)); }
   #sharedAreaCard { max-width: 860px; margin: 0 auto; width: 100%; }
   #tasksView, #interviewsView { grid-template-columns: 1fr; max-width: 860px; margin: 0 auto; width: 100%; }
   #profileView, #settingsView { grid-template-columns: 1fr; max-width: 860px; margin: 0 auto; width: 100%; }

@@ -432,11 +432,12 @@ async function register(event) {
 
 async function forgotPassword(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   $('#forgotStatus').textContent = 'Enviando...';
   try {
-    await api('/api/forgot-password', { method: 'POST', body: formData(event.currentTarget) });
+    await api('/api/forgot-password', { method: 'POST', body: formData(form) });
     $('#forgotStatus').textContent = 'Si el email está registrado, te enviamos un enlace para restablecer tu contraseña. Revisa tu correo.';
-    event.currentTarget.reset();
+    form.reset();
   } catch (error) {
     $('#forgotStatus').textContent = error.message;
   }
